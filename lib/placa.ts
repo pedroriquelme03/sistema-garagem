@@ -37,6 +37,7 @@ export interface VehicleInfo {
   municipio?: string;
   uf?: string;
   chassi?: string;
+  renavam?: string;
   situacao?: string;
   segmento?: string;
   tipoVeiculo?: string;
@@ -82,7 +83,7 @@ function pick(obj: Record<string, any>, ...keys: string[]): string | undefined {
 
 /** Extrai a lista de itens FIPE de formatos variados. */
 function extrairFipe(raw: Record<string, any>): FipeEntry[] {
-  const fipe = raw?.fipe ?? raw?.FIPE ?? raw?.tabela_fipe;
+  const fipe = raw?.fipe ?? raw?.FIPE ?? raw?.tabela_fipe ?? raw?.informacoes_fipe;
   let lista: any[] = [];
 
   if (Array.isArray(fipe)) lista = fipe;
@@ -93,8 +94,8 @@ function extrairFipe(raw: Record<string, any>): FipeEntry[] {
   return lista
     .map((item): FipeEntry => ({
       codigo: pick(item, "codigo_fipe", "codigo", "fipe_codigo"),
-      descricao: pick(item, "modelo", "descricao", "versao", "text"),
-      valor: pick(item, "valor", "preco", "price", "valor_medio"),
+      descricao: pick(item, "modelo_versao", "modelo", "descricao", "versao", "text"),
+      valor: formatarValorFipe(pick(item, "valor", "preco", "price", "valor_medio")),
       anoModelo: pick(item, "ano_modelo", "anoModelo", "ano"),
       combustivel: pick(item, "combustivel", "combustivel_versao"),
       score: (() => {
@@ -107,19 +108,37 @@ function extrairFipe(raw: Record<string, any>): FipeEntry[] {
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 
+/** Transforma preços numéricos de provedores em moeda brasileira para a UI. */
+function formatarValorFipe(valor?: string): string | undefined {
+  if (!valor) return undefined;
+  if (/R\$/i.test(valor)) return valor;
+  if (/^\d+(\.\d{1,2})?$/.test(valor.trim())) {
+    return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+  return valor;
+}
+
 /** Converte a resposta bruta do provedor para o formato interno. */
 export function normalizarResposta(
   raw: Record<string, any>,
   provedor: string,
 ): VehicleInfo {
   // Alguns provedores (ex.: APIBrasil) aninham os dados dentro de "response".
-  const src: Record<string, any> =
+  const resposta: Record<string, any> =
     (raw && typeof raw === "object" && (raw.response ?? raw.data ?? raw.dados ?? raw.retorno)) || raw;
+  const informacoes = resposta?.informacoes_veiculo;
+  const src: Record<string, any> = informacoes
+    ? { ...resposta, ...(informacoes.dados_veiculo ?? {}), ...(informacoes.dados_tecnicos ?? {}) }
+    : resposta;
 
+  const fipe = extrairFipe(resposta);
+  const modeloOriginal = pick(src, "modelo", "MODELO");
   return {
     placa: pick(src, "placa", "plate") ?? "",
     marca: pick(src, "marca", "MARCA", "fabricante"),
-    modelo: pick(src, "modelo", "MODELO"),
+    // A FIPE devolve a descrição completa; ela é mais útil para venda que a
+    // abreviação presente em algumas bases de placa (ex.: "POLO CL AD").
+    modelo: fipe[0]?.descricao ?? modeloOriginal,
     versao: pick(src, "versao", "VERSAO", "submodelo"),
     ano: pick(src, "ano", "anoFabricacao", "ano_fabricacao"),
     anoModelo: pick(src, "anoModelo", "ano_modelo"),
@@ -130,10 +149,11 @@ export function normalizarResposta(
     municipio: pick(src, "municipio", "cidade"),
     uf: pick(src, "uf", "UF", "estado"),
     chassi: pick(src, "chassi", "chassis"),
+    renavam: pick(src, "renavam", "RENAVAM"),
     situacao: pick(src, "situacao", "status"),
     segmento: pick(src, "segmento"),
     tipoVeiculo: pick(src, "tipo_veiculo", "tipoVeiculo", "especie"),
-    fipe: extrairFipe(src),
+    fipe,
     origem: "provedor",
     provedor,
     raw,

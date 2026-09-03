@@ -123,7 +123,7 @@ function Resultado({ data }: { data: VehicleInfo }) {
     ["Cor", data.cor],
     ["Combustível", data.combustivel],
     ["Potência", data.potencia],
-    ["Cilindradas", data.cilindradas],
+    ["Cilindradas", formatarCilindradas(data.cilindradas)],
     ["Segmento", data.segmento],
     ["Tipo", data.tipoVeiculo],
     ["Município/UF", [data.municipio, data.uf].filter(Boolean).join(" - ") || undefined],
@@ -157,7 +157,15 @@ function Resultado({ data }: { data: VehicleInfo }) {
               {[data.marca, data.modelo].filter(Boolean).join(" ") || "Veículo"}
             </p>
           </div>
-          <PlacaBadge placa={data.placa} />
+          <div className="flex items-center gap-4">
+            {data.fipe[0]?.valor && (
+              <div className="text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">FIPE atual</p>
+                <p className="mt-0.5 text-base font-bold text-emerald-700">{data.fipe[0].valor}</p>
+              </div>
+            )}
+            <PlacaBadge placa={data.placa} />
+          </div>
         </div>
 
         <dl className="grid grid-cols-1 gap-x-8 gap-y-4 px-6 py-6 sm:grid-cols-2">
@@ -381,6 +389,13 @@ function ComparativoFipe({ media, fipe }: { media: number; fipe: number }) {
       </span>
     </div>
   );
+}
+
+function formatarCilindradas(valor?: string): string | undefined {
+  if (!valor) return undefined;
+  const numero = Number(valor.replace(/[^\d]/g, ""));
+  if (!numero) return valor;
+  return `${numero.toLocaleString("pt-BR")} cm³ (${(numero / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L)`;
 }
 
 function PlacaBadge({ placa }: { placa: string }) {

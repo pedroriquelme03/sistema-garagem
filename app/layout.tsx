@@ -3,7 +3,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 
 export const metadata: Metadata = {
-  title: "Sistema Garagem",
+  title: "Garagem Pro | Gestão de veículos",
   description: "Gestão de veículos — consulta de placa, FIPE e dados públicos.",
 };
 

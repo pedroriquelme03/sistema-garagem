@@ -32,7 +32,14 @@ export const dynamic = "force-dynamic";
 
 /** Preenche/substitui a FIPE usando a API gratuita (modelo híbrido). */
 async function enriquecerFipe(data: ConsultaResult["data"]): Promise<void> {
-  if (!data || process.env.FIPE_GRATIS === "0") return;
+  if (!data) return;
+  // Quando o provedor já devolveu FIPE por placa, ela é a correspondência
+  // exata e não deve ser substituída por uma busca aproximada gratuita.
+  if (data.fipe.length) {
+    data.fipeFonte = data.provedor ?? "provedor";
+    return;
+  }
+  if (process.env.FIPE_GRATIS === "0") return;
   const gratis = await buscarFipe({
     marca: data.marca,
     modelo: data.modelo,
@@ -49,7 +56,8 @@ async function enriquecerFipe(data: ConsultaResult["data"]): Promise<void> {
 
 async function consultarProvedor(placa: string): Promise<ConsultaResult> {
   const urlTemplate = process.env.PLACA_API_URL;
-  const token = process.env.PLACA_API_TOKEN ?? "";
+  // PLACA_API_KEY também é aceito para compatibilidade com Consultar Placa.
+  const token = process.env.PLACA_API_TOKEN ?? process.env.PLACA_API_KEY ?? "";
   const method = (process.env.PLACA_API_METHOD ?? "GET").toUpperCase();
   const authHeader = process.env.PLACA_API_AUTH_HEADER;
 
@@ -58,7 +66,17 @@ async function consultarProvedor(placa: string): Promise<ConsultaResult> {
     return { ok: true, data: respostaDemo(placa) };
   }
 
-  const url = urlTemplate
+  const usaConsultarPlaca = urlTemplate.includes("consultarplaca.com.br");
+  const emailConsultarPlaca = process.env.PLACA_API_EMAIL ?? "";
+  if (usaConsultarPlaca && (!emailConsultarPlaca || !token)) {
+    return { ok: false, error: "Configure PLACA_API_EMAIL e PLACA_API_KEY no .env.local para usar a API Consultar Placa." };
+  }
+
+  // Corrige uma URL de documentação configurada por engano para o endpoint real.
+  const urlBase = urlTemplate.includes("docs.consultarplaca.com.br")
+    ? "https://api.consultarplaca.com.br/v2/consultarPrecoFipe?placa={placa}"
+    : urlTemplate;
+  const url = urlBase
     .replace(/{placa}/gi, encodeURIComponent(placa))
     .replace(/{token}/gi, encodeURIComponent(token));
 
@@ -66,6 +84,9 @@ async function consultarProvedor(placa: string): Promise<ConsultaResult> {
   if (authHeader && token) {
     headers[authHeader] =
       authHeader.toLowerCase() === "authorization" ? `Bearer ${token}` : token;
+  }
+  if (usaConsultarPlaca) {
+    headers.Authorization = `Basic ${Buffer.from(`${emailConsultarPlaca}:${token}`).toString("base64")}`;
   }
 
   const init: RequestInit = { method, headers, cache: "no-store" };
