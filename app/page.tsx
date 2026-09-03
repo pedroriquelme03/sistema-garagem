@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+// Página inicial do painel.
+
 const vehicles = [
   ["Chevrolet Onix Plus LT", "RHK-2E19", "2022/2023", "R$ 82.900", "Anunciado"],
   ["Toyota Corolla XEi", "SDP-8A04", "2021/2022", "R$ 122.900", "Em preparação"],
