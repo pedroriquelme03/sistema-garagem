@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import ClienteForm from "@/components/ClienteForm";
 import { parseBRL } from "@/lib/anuncios";
 import { clienteInicial, filtrarClientes, listarClientes, salvarCliente, type Cliente, type ClienteForm as Form, type Pessoa } from "@/lib/clientes";
@@ -12,6 +12,7 @@ import { carregarDadosLoja } from "@/lib/loja";
 import { salvarNegociacao, type FormaPagamento, type ItemPagamento, type Negociacao } from "@/lib/negociacoes";
 import type { VehicleInfo } from "@/lib/placa";
 import { buscarVeiculoPorId, listarVeiculos, salvarVeiculo, type Veiculo } from "@/lib/veiculos";
+import { tirarVeiculoDoSite } from "@/lib/vitrine-client";
 
 type TipoPrincipal = "Venda" | "Compra" | "Consignação";
 type VeiculoMini = { marca: string; modelo: string; placa: string; anoFabricacao: string; anoModelo: string; km: string; valor: string };
@@ -32,7 +33,7 @@ function filtrarVeiculos(veiculos: Veiculo[], termo: string) {
 }
 function resumoVeiculo(v: Veiculo) { return [v.marca, v.modelo].filter(Boolean).join(" ") || "Veículo sem marca/modelo"; }
 
-export default function NovaNegociacao() {
+function NovaNegociacao() {
   const searchParams = useSearchParams();
   const [tipo, setTipo] = useState<TipoPrincipal>("Venda");
   const [responsavelLoja, setResponsavelLoja] = useState("");
@@ -71,7 +72,7 @@ export default function NovaNegociacao() {
     if (veiculoId) {
       const encontrado = veiculosCarregados.find(v => v.id === veiculoId);
       if (encontrado) setVeiculoSelecionado(encontrado);
-      else setError("O veículo indicado não foi encontrado no estoque local (pode ser um exemplo de demonstração). Selecione o veículo manualmente abaixo.");
+      else setError("Veículo não encontrado no estoque. Selecione outro abaixo.");
     }
   }, [searchParams]);
 
@@ -157,7 +158,10 @@ export default function NovaNegociacao() {
 
     if (tipo === "Venda") {
       const veiculoAtual = buscarVeiculoPorId(veiculoPrincipalId);
-      if (veiculoAtual) salvarVeiculo({ ...veiculoAtual, status: "Vendido" });
+      if (veiculoAtual) {
+        salvarVeiculo({ ...veiculoAtual, status: "Vendido" });
+        void tirarVeiculoDoSite(veiculoPrincipalId);
+      }
       if (trocaAtiva) {
         const trocaVeiculoId = crypto.randomUUID();
         salvarVeiculo({ id: trocaVeiculoId, marca: trocaForm.marca, modelo: trocaForm.modelo, placa: trocaForm.placa, anoFabricacao: trocaForm.anoFabricacao, anoModelo: trocaForm.anoModelo, km: trocaForm.km, status: "Cadastrado", tipoEstoque: "Próprio", criadoEm: new Date().toISOString() });
@@ -183,11 +187,11 @@ export default function NovaNegociacao() {
   const resultadosVeiculo = buscaVeiculo ? filtrarVeiculos(veiculos, buscaVeiculo).slice(0, 6) : [];
 
   return <div className="mx-auto max-w-4xl px-4 py-7 sm:px-6 lg:px-8">
-    <header className="mb-7 flex items-end justify-between"><div><p className="text-sm font-medium text-brand-600">Negociação</p><h1 className="mt-1 text-3xl font-bold text-slate-950">Nova negociação</h1><p className="mt-1 text-sm text-slate-500">Registre a venda, compra ou consignação e gere o contrato.</p></div><Link href="/estoque" className="text-sm font-semibold text-slate-600">← Estoque</Link></header>
+    <header className="mb-7 flex items-end justify-between"><div><p className="text-sm font-medium text-brand-600">Negociação</p><h1 className="mt-1 text-3xl font-bold text-slate-950">Nova negociação</h1><p className="mt-1 text-sm text-slate-500">Registre a venda, compra ou consignação e gere o contrato.</p></div><Link href="/negociacoes" className="text-sm font-semibold text-slate-600">← Negociações</Link></header>
 
     <form onSubmit={salvar} className="space-y-6">
       {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {sucesso && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Negociação salva. <Link href="/estoque" className="font-semibold underline">Ver estoque</Link></p>}
+      {sucesso && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Negociação salva. <Link href="/negociacoes" className="font-semibold underline">Ver negociações</Link></p>}
 
       <Card title="Tipo de negociação"><div className="grid grid-cols-3 gap-3">{(["Venda", "Compra", "Consignação"] as TipoPrincipal[]).map(item => <button type="button" key={item} onClick={() => escolherTipo(item)} className={`rounded-xl border-2 px-4 py-3 text-sm font-semibold ${tipo === item ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{item}</button>)}</div></Card>
 
@@ -219,7 +223,10 @@ export default function NovaNegociacao() {
         {trocaAtiva && <div className="mt-4"><VeiculoCampos valores={trocaForm} set={setCampoTroca} comValor onBuscarPlaca={() => buscarPelaPlaca(trocaForm, setCampoTroca)} buscandoPlaca={buscandoPlaca}/></div>}
       </Card>}
 
-      <Card title="Valor da negociação"><Input label="Valor total" value={valor} onChange={setValor} onBlur={() => setValor(money(valor))} placeholder="R$ 0,00"/></Card>
+      <Card title="Valor da negociação">
+        <Input label="Valor total" value={valor} onChange={setValor} onBlur={() => setValor(money(valor))} placeholder="R$ 0,00"/>
+        {tipo === "Venda" && clienteSelecionado && veiculoSelecionado && <Link href={`/simulacoes?clienteId=${clienteSelecionado.id}&veiculoId=${veiculoSelecionado.id}&valor=${encodeURIComponent(valor)}`} className="mt-3 inline-block text-sm font-semibold text-brand-600">Simular financiamento com estes dados →</Link>}
+      </Card>
 
       <Card title="Formas de pagamento">
         {valorTrocaNumerico > 0 && <p className="mb-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">Valor total: <strong>{valorTotalNumerico.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong> − carro na troca: <strong>{valorTrocaNumerico.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong> = a receber nas formas abaixo: <strong>{valorAReceber.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></p>}
@@ -236,7 +243,7 @@ export default function NovaNegociacao() {
         </p>}
       </Card>
 
-      <div className="sticky bottom-3 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg"><Link href="/estoque" className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600">Cancelar</Link><button className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">Salvar e gerar contrato</button></div>
+      <div className="sticky bottom-3 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg"><Link href="/negociacoes" className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600">Cancelar</Link><button className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">Salvar e gerar contrato</button></div>
     </form>
   </div>;
 }
@@ -259,4 +266,12 @@ function VeiculoCampos({ valores, set, comValor, onBuscarPlaca, buscandoPlaca }:
     <Input label="Quilometragem" value={valores.km} onChange={v => set("km", v)}/>
     {comValor && <Input label="Valor de avaliação" value={valores.valor} onChange={v => set("valor", v)} onBlur={() => set("valor", money(valores.valor))} placeholder="R$ 0,00"/>}
   </div>;
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="px-4 py-10 text-sm text-slate-500">Carregando negociação...</div>}>
+      <NovaNegociacao />
+    </Suspense>
+  );
 }

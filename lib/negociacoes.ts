@@ -50,3 +50,9 @@ export function entradaDoVeiculo(veiculoId: string): Negociacao | undefined {
 export function saidasDoVeiculo(veiculoId: string): Negociacao[] {
   return listarNegociacoesPorVeiculo(veiculoId).filter(item => item.tipo === "Venda");
 }
+
+export function listarNegociacoesPorCliente(clienteId: string): Negociacao[] {
+  return listarNegociacoes()
+    .filter(item => item.clienteId === clienteId)
+    .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+}

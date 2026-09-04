@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Garagem Pro | Gestão de veículos",
-  description: "Gestão de veículos — consulta de placa, FIPE e dados públicos.",
+  description: "Gestão simples de pátio — consulta de placa, estoque e site da loja.",
 };
 
 export default function RootLayout({
@@ -15,10 +15,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 min-w-0">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

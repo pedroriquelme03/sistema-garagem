@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, Suspense, useEffect, useRef, useState } from "react";
 import type { FipeEntry, VehicleInfo } from "@/lib/placa";
 import { carregarFotosDoVeiculo, salvarFotosDoVeiculo } from "@/lib/fotos";
+import { publicarVeiculoNoSite } from "@/lib/vitrine-client";
 import { carregarDadosLoja } from "@/lib/loja";
 import { escapeHtml, imprimirHtml } from "@/lib/imprimir";
 import { buscarClientePorId } from "@/lib/clientes";
 import { entradaDoVeiculo, saidasDoVeiculo, type Negociacao } from "@/lib/negociacoes";
+import { buscarVeiculoPorId, salvarVeiculo } from "@/lib/veiculos";
+import { formatBRL, parseBRL } from "@/lib/anuncios";
 
 type Form = Record<string, string>;
 type Foto = { id: string; file: File; url: string };
@@ -48,7 +51,7 @@ function family(value: string) {
   return ["classe", "grand", "new", "nova"].includes(parts[0]?.toLowerCase()) && parts[1] ? `${parts[0]} ${parts[1]}` : (parts[0] ?? value);
 }
 
-export default function AdicionarVeiculo() {
+function AdicionarVeiculo() {
   const searchParams = useSearchParams();
   const editId = searchParams.get("editar");
   const [form, setForm] = useState<Form>(initial);
@@ -70,6 +73,9 @@ export default function AdicionarVeiculo() {
   const fipeModels = Object.keys(catalog).sort((a, b) => a.localeCompare(b, "pt-BR"));
   const versions = catalog[form.modelo] ?? fipeVersions;
   const acessoriosSelecionados = form.acessorios ? form.acessorios.split("|").filter(Boolean) : [];
+  const compraNum = parseBRL(form.valorCompra);
+  const vendaNum = parseBRL(form.valorVenda);
+  const margemAtual = compraNum !== undefined && vendaNum !== undefined ? vendaNum - compraNum : null;
   useEffect(() => () => { fotosRef.current.forEach(foto => URL.revokeObjectURL(foto.url)); }, []);
   useEffect(() => {
     if (!editId) return;
@@ -82,32 +88,33 @@ export default function AdicionarVeiculo() {
     if (!editId) return;
     let ativo = true;
     try {
-      const records: (Form & { id: string })[] = JSON.parse(localStorage.getItem("garagem-pro-estoque") ?? "[]");
-      const vehicle = records.find(item => item.id === editId);
-      if (vehicle) {
-        setForm({ ...initial, ...vehicle });
-        setAlterado(false);
-        const fotosSalvas = (vehicle as unknown as { fotos?: { id?: string; nome?: string; tipo?: string }[] }).fotos ?? [];
-        const ids = fotosSalvas.map(foto => foto.id).filter((id): id is string => Boolean(id));
-        void carregarFotosDoVeiculo(vehicle.id, ids).then(fotosDoBanco => {
-          if (!ativo) return;
-          const carregadas: Foto[] = fotosDoBanco.map((foto, index) => {
-            const dados = fotosSalvas.find(item => item.id === foto.id);
-            const file = new File([foto.blob], dados?.nome ?? `foto-${index + 1}.jpg`, { type: dados?.tipo ?? foto.blob.type });
-            return { id: foto.id, file, url: URL.createObjectURL(foto.blob) };
-          });
-          fotosRef.current = carregadas;
-          setFotos(carregadas);
-        }).catch(() => undefined);
-        return () => { ativo = false; };
+      const vehicle = buscarVeiculoPorId(editId);
+      if (!vehicle) {
+        setError("Veículo não encontrado no estoque local.");
+        return;
       }
-      const recebido = { marca: searchParams.get("marca") ?? "", modelo: searchParams.get("modelo") ?? "", placa: searchParams.get("placa") ?? "", anoFabricacao: searchParams.get("anoFabricacao") ?? "", anoModelo: searchParams.get("anoModelo") ?? "", km: searchParams.get("km") ?? "", valorVenda: searchParams.get("valorVenda") ?? "", status: searchParams.get("status") ?? "Cadastrado" };
-      if (recebido.marca || recebido.modelo || recebido.placa) { setForm({ ...initial, ...recebido }); setAlterado(false); } else setError("Veículo não encontrado no estoque local.");
-    } catch { setError("Não foi possível abrir o veículo para edição."); }
+      const { fotos: _fotos, id: _id, ...campos } = vehicle;
+      setForm({ ...initial, ...campos });
+      setAlterado(false);
+      const fotosSalvas = vehicle.fotos ?? [];
+      const ids = fotosSalvas.map(foto => foto.id).filter((id): id is string => Boolean(id));
+      void carregarFotosDoVeiculo(vehicle.id, ids).then(fotosDoBanco => {
+        if (!ativo) return;
+        const carregadas: Foto[] = fotosDoBanco.map((foto, index) => {
+          const dados = fotosSalvas.find(item => item.id === foto.id);
+          const file = new File([foto.blob], dados?.nome ?? `foto-${index + 1}.jpg`, { type: foto.blob.type || "image/jpeg" });
+          return { id: foto.id, file, url: URL.createObjectURL(foto.blob) };
+        });
+        fotosRef.current = carregadas;
+        setFotos(carregadas);
+      }).catch(() => undefined);
+    } catch {
+      setError("Não foi possível abrir o veículo para edição.");
+    }
     return () => { ativo = false; };
   }, [editId]);
   function atualizarFotos(proximas: Foto[]) { fotosRef.current = proximas; setFotos(proximas); setAlterado(true); setDone(false); setAvisoSalvar(null); }
-  function adicionarFotos(event: ChangeEvent<HTMLInputElement>) { const arquivos = Array.from(event.target.files ?? []); const aceitos = arquivos.filter(arquivo => arquivo.type.startsWith("image/") && arquivo.size <= 10 * 1024 * 1024).slice(0, Math.max(0, 20 - fotos.length)); atualizarFotos([...fotos, ...aceitos.map(file => ({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) }))]); event.target.value = ""; }
+  function adicionarFotos(event: ChangeEvent<HTMLInputElement>) { const arquivos = Array.from(event.target.files ?? []); const aceitos = arquivos.filter(arquivo => arquivo.type.startsWith("image/") && arquivo.size <= 10 * 1024 * 1024).slice(0, Math.max(0, 12 - fotos.length)); atualizarFotos([...fotos, ...aceitos.map(file => ({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) }))]); event.target.value = ""; }
   function removerFoto(id: string) { const foto = fotos.find(item => item.id === id); if (foto) URL.revokeObjectURL(foto.url); atualizarFotos(fotos.filter(item => item.id !== id)); }
   function alternarAcessorio(acessorio: string) { const selecionados = new Set(acessoriosSelecionados); if (selecionados.has(acessorio)) selecionados.delete(acessorio); else selecionados.add(acessorio); set("acessorios", Array.from(selecionados).join("|")); }
   function aplicarSugestaoAcessorios() {
@@ -210,8 +217,7 @@ ${stat(form.garantia, "Garantia")}
   async function salvar(event: FormEvent) {
     event.preventDefault();
     if (!form.marca || !form.modelo || !form.km || !form.valorVenda) { const mensagem = "Preencha marca, modelo, quilometragem e valor de venda antes de salvar."; setError(mensagem); setAvisoSalvar(mensagem); return; }
-    const records = JSON.parse(localStorage.getItem("garagem-pro-estoque") ?? "[]");
-    const existing = records.find((item: { id: string }) => item.id === editId);
+    const existing = editId ? buscarVeiculoPorId(editId) : undefined;
     const id = editId ?? crypto.randomUUID();
     const dadosDasFotos = fotos.length ? fotos.map(foto => ({ id: foto.id, nome: foto.file.name, tipo: foto.file.type, tamanho: foto.file.size })) : (existing?.fotos ?? []);
     try {
@@ -220,9 +226,14 @@ ${stat(form.garantia, "Garantia")}
       const mensagem = "Não foi possível salvar a foto neste navegador. Tente outra imagem menor.";
       setError(mensagem); setAvisoSalvar(mensagem); return;
     }
-    const vehicle = { id, ...form, fotos: dadosDasFotos, criadoEm: existing?.criadoEm ?? new Date().toISOString() };
-    const updated = editId && existing ? records.map((item: { id: string }) => item.id === editId ? vehicle : item) : [vehicle, ...records];
-    localStorage.setItem("garagem-pro-estoque", JSON.stringify(updated));
+    salvarVeiculo({ id, ...form, fotos: dadosDasFotos, criadoEm: existing?.criadoEm ?? new Date().toISOString() });
+    try {
+      await publicarVeiculoNoSite({ id, ...form, fotos: dadosDasFotos, criadoEm: existing?.criadoEm ?? new Date().toISOString() }, fotos);
+    } catch (e) {
+      setError(null); setAvisoSalvar(null); setDone(true); setAlterado(false);
+      setError((e as Error).message + " O veículo foi salvo no painel, mas não atualizou o site.");
+      return;
+    }
     setError(null); setAvisoSalvar(null); setDone(true); setAlterado(false);
   }
 
@@ -230,12 +241,12 @@ ${stat(form.garantia, "Garantia")}
     <header className="mb-7 flex items-end justify-between"><div><p className="text-sm font-medium text-brand-600">Estoque</p><h1 className="mt-1 text-3xl font-bold text-slate-950">{editId ? "Editar veículo" : "Adicionar veículo"}</h1><p className="mt-1 text-sm text-slate-500">Consulte a placa para acelerar o preenchimento.</p></div><Link href="/estoque" className="text-sm font-semibold text-slate-600">← Estoque</Link></header>
     <form onSubmit={salvar} className="space-y-6">
       <section className="rounded-2xl border border-brand-100 bg-brand-50 p-5 sm:p-6"><p className="text-sm font-semibold text-slate-800">Buscar dados pela placa</p><p className="mt-1 text-xs text-slate-500">Depois da busca, escolha a versão correspondente na FIPE.</p><div className="mt-4 flex flex-col gap-3 sm:flex-row"><input value={form.placa} onChange={e => set("placa", plate(e.target.value))} placeholder="ABC-1234" className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold uppercase tracking-widest outline-none focus:border-brand-500"/><button type="button" onClick={buscar} disabled={loading} className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Buscando dados..." : "Buscar veículo"}</button></div>{fipe && <p className="mt-3 text-sm text-emerald-700">FIPE de referência: <strong>{fipe}</strong></p>}</section>
-      {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}{done && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{editId ? "Veículo atualizado" : "Veículo cadastrado"} neste navegador. <Link href="/estoque" className="font-semibold underline">Ver estoque</Link></p>}
+      {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}{done && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{editId ? "Veículo atualizado" : "Veículo cadastrado"}. {form.status === "Vendido" ? "Saiu do site da loja." : <>Publicado em <Link href="/loja" className="font-semibold underline" target="_blank">/loja</Link>.</>} <Link href="/estoque" className="font-semibold underline">Ver estoque</Link></p>}
       <Card title="Identificação do veículo"><Grid><Input label="Chassi" k="chassi" form={form} set={set}/><Input label="Renavam" k="renavam" form={form} set={set}/><Select label="Tipo" k="tipo" form={form} set={set} options={["Automóvel", "Motocicleta", "Caminhonete", "Caminhão"]}/><Select label="Novo ou usado" k="condicao" form={form} set={set} options={["Usado", "Novo"]}/></Grid></Card>
       <Card title="Dados do veículo"><Grid><Input label="Marca" k="marca" form={form} set={set} required/>{fipeModels.length ? <label className="text-xs font-semibold text-slate-600">Modelo (catálogo FIPE)<select value={form.modelo} onChange={e => { setAlterado(true); setDone(false); setAvisoSalvar(null); setForm(old => ({ ...old, modelo: e.target.value, versao: "" })); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500"><option value="">Selecione o modelo</option>{fipeModels.map(model => <option key={model}>{model}</option>)}</select></label> : <Input label="Modelo" k="modelo" form={form} set={set} required/>}{versions.length ? <Select label="Versão (opções FIPE)" k="versao" form={form} set={set} options={versions}/> : <Input label="Versão" k="versao" form={form} set={set}/>}<Input label="Ano fabricação" k="anoFabricacao" form={form} set={set}/><Input label="Ano modelo" k="anoModelo" form={form} set={set}/></Grid></Card>
       <Card title="Características físicas"><Grid><Input label="Cor principal" k="cor" form={form} set={set}/><Select label="Combustível" k="combustivel" form={form} set={set} options={["", "Flex (Álcool / Gasolina)", "Gasolina", "Diesel", "Etanol", "Elétrico", "Híbrido", "GNV"]}/><Select label="Portas" k="portas" form={form} set={set} options={["2", "3", "4", "5"]}/><Input label="Carroceria" k="carroceria" form={form} set={set}/><Select label="Câmbio" k="cambio" form={form} set={set} options={["Manual", "Automático", "Automatizado", "CVT"]}/><Input label="Quilometragem" k="km" form={form} set={set} required placeholder="Ex.: 48.000"/></Grid></Card>
       <Card title="Anúncio"><Grid><Select label="Status do veículo" k="status" form={form} set={set} options={["Cadastrado", "Em preparação", "Anunciado", "Negociação", "Vendido"]}/><label className="text-xs font-semibold text-slate-600 sm:col-span-2">Descrição do veículo<textarea value={form.descricao} onChange={e => set("descricao", e.target.value)} rows={4} placeholder="Opcional: descrição para o anúncio, diferenciais e acessórios." className="mt-2 w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"/></label></Grid></Card>
-      <Card title="Garantia, estoque e valores"><Grid><Select label="Garantia" k="garantia" form={form} set={set} options={["Sem garantia", "3 meses", "6 meses", "12 meses"]}/><Select label="Tipo de estoque" k="tipoEstoque" form={form} set={set} options={["Próprio", "Consignado", "Repasse"]}/><Input label="Valor de compra" k="valorCompra" form={form} set={set} placeholder="R$ 0,00" currency/><div><Input label="Valor de venda" k="valorVenda" form={form} set={set} required placeholder="R$ 0,00" currency/>{fipe && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">Referência de mercado (FIPE): <strong>{fipe}</strong></p>}</div></Grid></Card>
+      <Card title="Garantia, estoque e valores"><Grid><Select label="Garantia" k="garantia" form={form} set={set} options={["Sem garantia", "3 meses", "6 meses", "12 meses"]}/><Select label="Tipo de estoque" k="tipoEstoque" form={form} set={set} options={["Próprio", "Consignado", "Repasse"]}/><Input label="Valor de compra" k="valorCompra" form={form} set={set} placeholder="R$ 0,00" currency/><div><Input label="Valor de venda" k="valorVenda" form={form} set={set} required placeholder="R$ 0,00" currency/>{fipe && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">Referência de mercado (FIPE): <strong>{fipe}</strong></p>}{margemAtual !== null && <p className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${margemAtual >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>Margem bruta (venda − compra): <strong>{formatBRL(margemAtual)}</strong></p>}</div></Grid></Card>
       {editId && <Card title="Movimentações">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Entrada em estoque</h3>
@@ -263,7 +274,7 @@ ${stat(form.garantia, "Garantia")}
         <Grid><Input label="Opcional 1" k="cabide1" form={form} set={set}/><Input label="Opcional 2" k="cabide2" form={form} set={set}/><Input label="Opcional 3" k="cabide3" form={form} set={set}/><Input label="Opcional 4" k="cabide4" form={form} set={set}/><Input label="Opcional 5" k="cabide5" form={form} set={set}/><Input label="Opcional 6" k="cabide6" form={form} set={set}/></Grid>
         <button type="button" onClick={imprimirCabide} className="mt-4 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white">Imprimir cabide</button>
       </Card>
-      <Card id="fotos" title="Fotos do veículo"><div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-4"><label className="flex cursor-pointer flex-col items-center justify-center rounded-lg px-4 py-7 text-center hover:bg-white"><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={adicionarFotos}/><span className="text-2xl text-brand-600">⌑</span><span className="mt-2 text-sm font-semibold text-slate-700">Adicionar fotos</span><span className="mt-1 text-xs text-slate-500">JPG, PNG ou WebP · até 10 MB por foto · máximo de 20 fotos</span></label></div><p className="mt-3 text-xs text-slate-500">Ao salvar, as fotos ficam guardadas neste navegador e a primeira aparece no estoque.</p>{fotos.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">{fotos.map((foto, index) => <div key={foto.id} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100"><img src={foto.url} alt={`Foto ${index + 1} do veículo`} className="aspect-[4/3] h-full w-full object-cover"/><span className="absolute left-2 top-2 rounded bg-slate-950/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span><button type="button" onClick={() => removerFoto(foto.id)} className="absolute right-2 top-2 rounded bg-white/95 px-2 py-1 text-xs font-semibold text-red-600 shadow opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">Remover</button></div>)}</div>}</Card>
+      <Card id="fotos" title="Fotos do veículo"><div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-4"><label className="flex cursor-pointer flex-col items-center justify-center rounded-lg px-4 py-7 text-center hover:bg-white"><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={adicionarFotos}/><span className="text-2xl text-brand-600">⌑</span><span className="mt-2 text-sm font-semibold text-slate-700">Adicionar fotos</span><span className="mt-1 text-xs text-slate-500">JPG, PNG ou WebP · até 10 MB · até 12 no site da loja</span></label></div><p className="mt-3 text-xs text-slate-500">Ao salvar, as fotos vão para o estoque interno e para o site público da loja (/loja). Cliente vê a mesma foto que o vendedor subiu.</p>{fotos.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">{fotos.map((foto, index) => <div key={foto.id} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100"><img src={foto.url} alt={`Foto ${index + 1} do veículo`} className="aspect-[4/3] h-full w-full object-cover"/><span className="absolute left-2 top-2 rounded bg-slate-950/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">{index + 1}</span><button type="button" onClick={() => removerFoto(foto.id)} className="absolute right-2 top-2 rounded bg-white/95 px-2 py-1 text-xs font-semibold text-red-600 shadow opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">Remover</button></div>)}</div>}</Card>
       <Card title="Documentos"><label className="block cursor-pointer rounded-xl border border-dashed border-slate-300 bg-slate-50 p-7 text-center text-sm text-slate-500"><input type="file" accept="image/*,.pdf" className="sr-only"/>↥ Adicionar CRLV (imagem ou PDF)</label></Card>
       {alterado && <div className="sticky bottom-3 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg"><p className="mr-auto text-xs font-medium text-amber-700">{avisoSalvar ?? "Você possui alterações não salvas."}</p><Link href="/estoque" className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600">Cancelar</Link><button className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">{editId ? "Salvar alterações" : "Adicionar veículo"}</button></div>}
     </form>
@@ -274,3 +285,11 @@ function Info({ label, value }: { label: string; value: string }) { return <div>
 function Grid({ children }: { children: React.ReactNode }) { return <div className="grid gap-4 sm:grid-cols-2">{children}</div>; }
 function Input({ label, k, form, set, required, placeholder, currency }: { label: string; k: string; form: Form; set: (k: string, v: string) => void; required?: boolean; placeholder?: string; currency?: boolean }) { return <label className="text-xs font-semibold text-slate-600">{label}{required && <span className="text-red-500"> *</span>}<input value={form[k]} required={required} onChange={e => set(k, e.target.value)} onBlur={() => currency && set(k, money(form[k]))} placeholder={placeholder} inputMode={currency ? "decimal" : undefined} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"/></label>; }
 function Select({ label, k, form, set, options }: { label: string; k: string; form: Form; set: (k: string, v: string) => void; options: string[] }) { return <label className="text-xs font-semibold text-slate-600">{label}<select value={form[k]} onChange={e => set(k, e.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500">{options.map(option => <option key={option}>{option}</option>)}</select></label>; }
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="px-4 py-10 text-sm text-slate-500">Carregando veículo...</div>}>
+      <AdicionarVeiculo />
+    </Suspense>
+  );
+}

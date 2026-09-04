@@ -48,6 +48,19 @@ export async function carregarPrimeiraFoto(veiculoId: string, fotoId?: string) {
   return resultado?.blob ? URL.createObjectURL(resultado.blob) : null;
 }
 
+export async function excluirFotosDoVeiculo(veiculoId: string, fotoIds: string[]) {
+  if (!fotoIds.length) return;
+  const db = await abrirBanco();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(tabela, "readwrite");
+    const store = transaction.objectStore(tabela);
+    fotoIds.forEach(fotoId => store.delete(`${veiculoId}:${fotoId}`));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
 export async function carregarFotosDoVeiculo(veiculoId: string, fotoIds: string[]) {
   if (!fotoIds.length) return [];
   const db = await abrirBanco();

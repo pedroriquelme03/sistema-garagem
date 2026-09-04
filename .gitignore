@@ -32,3 +32,8 @@ yarn-error.log*
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# vitrine pública (fotos e estoque publicados)
+/data/*.json
+/public/vitrine/**
+!/public/vitrine/.gitkeep

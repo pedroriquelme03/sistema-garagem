@@ -1,21 +1,109 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { formatBRL } from "@/lib/anuncios";
+import { resumoOperacao, type ResumoOperacao } from "@/lib/metricas";
+import { nomeVeiculo, textoDiasNoPatio } from "@/lib/veiculos";
 
-// Página inicial do painel.
-
-const vehicles = [
-  ["Chevrolet Onix Plus LT", "RHK-2E19", "2022/2023", "R$ 82.900", "Anunciado"],
-  ["Toyota Corolla XEi", "SDP-8A04", "2021/2022", "R$ 122.900", "Em preparação"],
-  ["Volkswagen T-Cross", "RKL-1G22", "2023/2024", "R$ 119.900", "Anunciado"],
-  ["Fiat Strada Freedom", "RHU-5B70", "2022/2023", "R$ 99.900", "Negociação"],
-];
+function corStatus(status?: string) {
+  if (status === "Anunciado") return "text-emerald-600";
+  if (status === "Em preparação") return "text-amber-600";
+  if (status === "Negociação") return "text-brand-600";
+  return "text-slate-500";
+}
 
 export default function Dashboard() {
-  return <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
-    <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-medium text-brand-600">Visão geral</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Bom dia, Jota.</h1><p className="mt-1 text-sm text-slate-500">Sua operação de vendas em um só lugar.</p></div><Link href="/adicionar-veiculo" className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">+ Adicionar veículo</Link></header>
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric title="Veículos em estoque" value="28" info="4 entram esta semana" /><Metric title="Valor do estoque" value="R$ 2,46 mi" info="+ 8,4% no mês" /><Metric title="Leads em atendimento" value="17" info="6 aguardam retorno" /><Metric title="Propostas abertas" value="6" info="R$ 418.700 em negociação" /></section>
-    <section className="mt-7 grid gap-6 xl:grid-cols-[1.5fr_1fr]"><div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-6 py-4"><div><h2 className="font-semibold text-slate-900">Estoque recente</h2><p className="mt-0.5 text-xs text-slate-500">Veículos que exigem acompanhamento.</p></div><Link href="/estoque" className="text-sm font-semibold text-brand-600">Ver estoque</Link></div><div className="divide-y divide-slate-100">{vehicles.map(([name, plate, year, price, status]) => <div key={plate} className="flex items-center gap-3 px-6 py-4"><div className="grid h-11 w-14 place-items-center rounded-lg bg-slate-100 text-slate-400">▱</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-800">{name}</p><p className="mt-0.5 text-xs text-slate-500">{plate} · {year}</p></div><div className="text-right"><p className="text-sm font-semibold text-slate-800">{price}</p><p className="mt-1 text-xs text-emerald-600">● {status}</p></div></div>)}</div></div><div className="rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-6 py-4"><h2 className="font-semibold text-slate-900">Atividade recente</h2></div><div className="space-y-5 px-6 py-5 text-sm"><Activity title="Nova consulta de placa" detail="RHK-2E19 · Chevrolet Onix" /><Activity title="Proposta recebida" detail="Toyota Corolla XEi · R$ 118.000" /><Activity title="Cliente cadastrado" detail="Mariana Alves · interesse em SUV" /></div></div></section>
-    <section className="mt-7 rounded-2xl border border-brand-100 bg-brand-50 p-6"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 className="font-semibold text-slate-900">Cadastre seu próximo veículo</h2><p className="mt-1 text-sm text-slate-600">Digite a placa, confira os dados preenchidos e envie o veículo para o estoque.</p></div><Link href="/adicionar-veiculo" className="rounded-xl border border-brand-200 bg-white px-4 py-2.5 text-sm font-semibold text-brand-700 shadow-sm">Adicionar veículo</Link></div></section>
-  </div>;
+  const [resumo, setResumo] = useState<ResumoOperacao | null>(null);
+
+  useEffect(() => { setResumo(resumoOperacao()); }, []);
+
+  if (!resumo) return null;
+
+  const titulo = resumo.nomeLoja ? `${resumo.saudacao}, ${resumo.nomeLoja}.` : `${resumo.saudacao}.`;
+  const vazio = resumo.noPatio.length === 0 && resumo.vendidos.length === 0 && resumo.negociacoes === 0;
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+      <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-sm font-medium text-brand-600">Visão geral</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{titulo}</h1>
+          <p className="mt-1 text-sm text-slate-500">Pátio, clientes e negociações deste navegador — sem números de demonstração.</p>
+        </div>
+        <Link href="/adicionar-veiculo" className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700">+ Adicionar veículo</Link>
+      </header>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric title="No pátio" value={String(resumo.noPatio.length)} info={resumo.diasMedioPatio === null ? "Cadastre a data de entrada ao salvar o carro" : `média de ${Math.round(resumo.diasMedioPatio)} dia${Math.round(resumo.diasMedioPatio) === 1 ? "" : "s"} no pátio`} />
+        <Metric title="Valor do pátio" value={formatBRL(resumo.valorPatio)} info={resumo.margemPatio === null ? "Preencha compra e venda para ver a margem" : `margem estimada ${formatBRL(resumo.margemPatio)}`} />
+        <Metric title="Clientes" value={String(resumo.clientes)} info={resumo.clientes ? "Base cadastrada neste PC" : "Nenhum cliente ainda"} />
+        <Metric title="Negociações" value={String(resumo.negociacoes)} info={resumo.vendas ? `${resumo.vendas} venda${resumo.vendas === 1 ? "" : "s"} · ${formatBRL(resumo.valorVendas)}` : "Nenhuma venda registrada"} />
+      </section>
+
+      {vazio && (
+        <section className="mt-7 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <h2 className="font-semibold text-slate-900">O pátio ainda está vazio</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">Consulte uma placa, cadastre o veículo e acompanhe dias no pátio e margem de verdade.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link href="/consultar-placa" className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white">Consultar placa</Link>
+            <Link href="/adicionar-veiculo" className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Adicionar veículo</Link>
+          </div>
+        </section>
+      )}
+
+      <section className="mt-7 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            <div>
+              <h2 className="font-semibold text-slate-900">Pátio recente</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Os últimos veículos ainda não vendidos.</p>
+            </div>
+            <Link href="/estoque" className="text-sm font-semibold text-brand-600">Ver estoque</Link>
+          </div>
+          {resumo.recentesPatio.length === 0 ? (
+            <p className="px-6 py-8 text-sm text-slate-500">Nenhum veículo no pátio.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {resumo.recentesPatio.map(veiculo => (
+                <Link key={veiculo.id} href={`/adicionar-veiculo?editar=${veiculo.id}`} className="flex items-center gap-3 px-6 py-4 hover:bg-slate-50">
+                  <div className="grid h-11 w-14 place-items-center rounded-lg bg-slate-100 text-slate-400">▱</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">{nomeVeiculo(veiculo)}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{veiculo.placa || "sem placa"} · {textoDiasNoPatio(veiculo)} no pátio</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-slate-800">{veiculo.valorVenda || "—"}</p>
+                    <p className={`mt-1 text-xs ${corStatus(veiculo.status)}`}>● {veiculo.status || "Cadastrado"}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-4">
+            <h2 className="font-semibold text-slate-900">Atalhos</h2>
+          </div>
+          <div className="space-y-3 p-5 text-sm">
+            <Link href="/loja" target="_blank" className="block rounded-xl border border-slate-100 px-4 py-3 font-medium text-slate-800 hover:bg-slate-50">Ver site da loja</Link>
+            <Link href="/negociacoes/nova" className="block rounded-xl border border-slate-100 px-4 py-3 font-medium text-slate-800 hover:bg-slate-50">Nova negociação</Link>
+            <Link href="/simulacoes" className="block rounded-xl border border-slate-100 px-4 py-3 font-medium text-slate-800 hover:bg-slate-50">Simular financiamento</Link>
+            <Link href="/clientes" className="block rounded-xl border border-slate-100 px-4 py-3 font-medium text-slate-800 hover:bg-slate-50">Cadastrar cliente</Link>
+            <Link href="/relatorios" className="block rounded-xl border border-slate-100 px-4 py-3 font-medium text-slate-800 hover:bg-slate-50">Ver margem e giro</Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }
-function Metric({ title, value, info }: { title: string; value: string; info: string }) { return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm font-medium text-slate-500">{title}</p><p className="mt-4 text-2xl font-bold text-slate-900">{value}</p><p className="mt-1 text-xs text-slate-500">{info}</p></article>; }
-function Activity({ title, detail }: { title: string; detail: string }) { return <div className="border-l-2 border-brand-400 pl-3"><p className="font-medium text-slate-800">{title}</p><p className="mt-1 text-xs text-slate-500">{detail}</p></div>; }
+
+function Metric({ title, value, info }: { title: string; value: string; info: string }) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-medium text-slate-500">{title}</p>
+      <p className="mt-4 text-2xl font-bold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{info}</p>
+    </article>
+  );
+}
