@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  let body: { nome?: string; whatsapp?: string; logo?: string };
+  let body: { nome?: string; whatsapp?: string; logo?: string; temaId?: string };
   try {
     body = await req.json();
   } catch {
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     nome: body.nome ?? "",
     whatsapp: body.whatsapp ?? "",
     logoSrc,
+    temaId: body.temaId || atual.temaId || "garagem",
   });
   return NextResponse.json({ ok: true, loja });
 }

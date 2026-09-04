@@ -4,6 +4,14 @@
 
 :root {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --p-ink: 23 24 28;
+  --p-night: 15 16 20;
+  --p-paper: 243 239 230;
+  --p-cream: 250 247 241;
+  --p-sand: 231 224 210;
+  --p-mute: 110 106 98;
+  --p-cobalt: 33 87 232;
+  --p-deep: 22 61 184;
 }
 
 html,
@@ -13,6 +21,28 @@ body {
 
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
+}
+
+@keyframes loja-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes loja-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+.loja-fade-up {
+  animation: loja-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.loja-hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.loja-hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Scrollbar sutil */

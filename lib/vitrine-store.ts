@@ -73,9 +73,9 @@ export async function salvarArquivosDeFoto(
 export async function carregarLojaVitrine(): Promise<LojaVitrine> {
   try {
     const bruto = await readFile(lojaPath(), "utf8");
-    return { nome: "", whatsapp: "", logoSrc: "", ...JSON.parse(bruto) };
+    return { nome: "", whatsapp: "", logoSrc: "", temaId: "garagem", ...JSON.parse(bruto) };
   } catch {
-    return { nome: "", whatsapp: "", logoSrc: "" };
+    return { nome: "", whatsapp: "", logoSrc: "", temaId: "garagem" };
   }
 }
 
@@ -85,6 +85,7 @@ export async function salvarLojaVitrine(loja: LojaVitrine): Promise<LojaVitrine>
     nome: loja.nome.trim(),
     whatsapp: loja.whatsapp.trim(),
     logoSrc: loja.logoSrc,
+    temaId: loja.temaId || "garagem",
   };
   await writeFile(lojaPath(), JSON.stringify(registro, null, 2), "utf8");
   return registro;

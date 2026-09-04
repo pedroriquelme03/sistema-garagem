@@ -1,70 +1,81 @@
 import Link from "next/link";
-import { carregarLojaVitrine, listarVitrine } from "@/lib/vitrine-store";
-import { anoVitrine, nomeVitrine } from "@/lib/vitrine";
+import BotaoContato from "@/components/loja/BotaoContato";
+import HeroPatio from "@/components/loja/HeroPatio";
+import MarcasBusca from "@/components/loja/MarcasBusca";
+import VeiculoCard from "@/components/loja/VeiculoCard";
+import { carregarLojaPublica, listarEstoquePublico } from "@/lib/estoque-publico";
+import { linkWhatsapp } from "@/lib/loja-publico";
 
 export const dynamic = "force-dynamic";
 
-function linkWhatsapp(telefone: string, texto: string) {
-  const numero = telefone.replace(/\D/g, "");
-  if (!numero) return "";
-  return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
-}
-
-export default async function LojaPage() {
-  const [loja, veiculos] = await Promise.all([carregarLojaVitrine(), listarVitrine()]);
-  const nomeLoja = loja.nome || "Nossa loja";
-  const whats = linkWhatsapp(loja.whatsapp, `Olá, ${nomeLoja}! Vi o site e quero conhecer os carros.`);
+export default async function LojaHomePage() {
+  const [loja, estoque] = await Promise.all([carregarLojaPublica(), listarEstoquePublico()]);
+  const recentes = estoque.veiculos.slice(0, 6);
+  const whatsVenda = linkWhatsapp(loja.whatsapp, `Olá, ${loja.nome}! Quero avaliar um carro para venda.`);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            {loja.logoSrc
-              ? <img src={loja.logoSrc} alt={nomeLoja} className="h-10 w-auto max-w-[140px] object-contain" />
-              : <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-600 font-bold text-white">{nomeLoja.slice(0, 1).toUpperCase()}</span>}
-            <div>
-              <p className="font-semibold text-slate-950">{nomeLoja}</p>
-              <p className="text-xs text-slate-500">Estoque atualizado pela loja</p>
+    <div>
+      <HeroPatio veiculos={estoque.veiculos} nomeLoja={loja.nome} />
+      <MarcasBusca veiculos={estoque.veiculos} />
+
+      <section className="border-y border-patio-sand bg-white">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3">
+          {[
+            ["Pátio real", "O carro só aparece aqui depois de cadastrado no Garagem Pro. Vendeu, some do site."],
+            ["Marca com estoque", "A busca de marcas não lista fábrica que não tem unidade no chão."],
+            ["Conversa direta", "Proposta, troca e dúvida caem no WhatsApp da loja — sem portal no meio."],
+          ].map(([titulo, texto]) => (
+            <div key={titulo}>
+              <h2 className="font-display text-lg text-patio-ink">{titulo}</h2>
+              <p className="mt-2 text-sm leading-6 text-patio-mute">{texto}</p>
             </div>
-          </div>
-          {whats && <a href={whats} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">WhatsApp</a>}
+          ))}
         </div>
-      </header>
+      </section>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="text-3xl font-bold text-slate-950">Veículos à venda</h1>
-        <p className="mt-1 text-sm text-slate-500">{veiculos.length === 0 ? "Nenhum carro publicado ainda." : `${veiculos.length} veículo${veiculos.length === 1 ? "" : "s"} no pátio.`}</p>
-
-        {veiculos.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-            <p className="font-semibold text-slate-900">A vitrine ainda está vazia</p>
-            <p className="mt-2 text-sm text-slate-500">Quando o vendedor cadastrar um veículo com fotos no Garagem Pro, ele aparece aqui.</p>
+      <section className="py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h2 className="font-display text-3xl text-patio-ink">No pátio agora</h2>
+              <p className="mt-1 text-sm text-patio-mute">Uma fatia do estoque. O restante está na lista completa.</p>
+            </div>
+            <Link href="/loja/estoque" className="hidden text-sm font-semibold text-patio-cobalt sm:inline">Ver estoque →</Link>
           </div>
-        ) : (
           <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {veiculos.map(veiculo => {
-              const foto = veiculo.fotos[0]?.src;
-              return (
-                <li key={veiculo.id}>
-                  <Link href={`/loja/${veiculo.id}`} className="block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                    <div className="aspect-[16/10] bg-slate-100">
-                      {foto
-                        ? <img src={foto} alt={nomeVitrine(veiculo)} className="h-full w-full object-cover" />
-                        : <div className="grid h-full place-items-center text-sm text-slate-400">Sem foto</div>}
-                    </div>
-                    <div className="p-4">
-                      <p className="font-semibold text-slate-900">{nomeVitrine(veiculo)}</p>
-                      <p className="mt-1 text-xs text-slate-500">{anoVitrine(veiculo)} · {veiculo.km ? `${veiculo.km} km` : "Km sob consulta"}</p>
-                      <p className="mt-3 text-lg font-bold text-slate-950">{veiculo.valorVenda || "Consulte"}</p>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
+            {recentes.map(veiculo => (
+              <li key={veiculo.id}><VeiculoCard veiculo={veiculo} /></li>
+            ))}
           </ul>
-        )}
-      </main>
+          <Link href="/loja/estoque" className="mt-8 inline-flex text-sm font-semibold text-patio-cobalt sm:hidden">Ver estoque →</Link>
+        </div>
+      </section>
+
+      <section className="bg-patio-cream">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center">
+          <div>
+            <h2 className="font-display text-3xl text-patio-ink sm:text-4xl">Traz o seu. A gente avalia.</h2>
+            <p className="mt-4 max-w-lg text-sm leading-7 text-patio-mute">Troca, venda à vista ou entrada em outro carro do pátio. A proposta sai de quem já viu o veículo — não de um formulário genérico.</p>
+            {whatsVenda
+              ? <a href={whatsVenda} target="_blank" rel="noreferrer" className="mt-6 inline-flex rounded-xl bg-patio-ink px-5 py-3 text-sm font-semibold text-white hover:bg-patio-night">Quero avaliar o meu</a>
+              : <BotaoContato className="mt-6 inline-flex rounded-xl bg-patio-ink px-5 py-3 text-sm font-semibold text-white hover:bg-patio-night">Quero avaliar o meu</BotaoContato>}
+          </div>
+          <div className="rounded-2xl border border-patio-sand bg-white p-8">
+            <p className="font-display text-2xl text-patio-ink">Placa, fotos e uma conversa.</p>
+            <p className="mt-3 text-sm leading-6 text-patio-mute">O mesmo fluxo que a loja usa por dentro: identifica o carro, olha o estado, fecha número. Sem teatro de “delivery nacional” se a operação ainda é pátio local.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-patio-night py-14 text-white">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 sm:flex-row sm:items-center sm:px-6">
+          <div>
+            <h2 className="font-display text-3xl">Achou o carro?</h2>
+            <p className="mt-2 text-white/60">Manda mensagem. A loja responde com o que está de fato disponível.</p>
+          </div>
+          <BotaoContato className="rounded-xl bg-patio-cobalt px-5 py-3 text-sm font-semibold text-white hover:bg-patio-deep">Falar com a loja</BotaoContato>
+        </div>
+      </section>
     </div>
   );
 }

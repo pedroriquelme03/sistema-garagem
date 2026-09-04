@@ -3,10 +3,11 @@ export type DadosLoja = {
   site: string;
   whatsapp: string;
   logo: string;
+  temaId: string;
 };
 
 const chave = "garagem-pro-loja";
-const vazio: DadosLoja = { nome: "", site: "", whatsapp: "", logo: "" };
+const vazio: DadosLoja = { nome: "", site: "", whatsapp: "", logo: "", temaId: "garagem" };
 
 export function carregarDadosLoja(): DadosLoja {
   try {

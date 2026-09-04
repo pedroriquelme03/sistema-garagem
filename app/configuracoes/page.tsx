@@ -2,11 +2,12 @@
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { carregarDadosLoja, salvarDadosLoja, type DadosLoja } from "@/lib/loja";
+import { TEMAS_LOJA } from "@/lib/temas-loja";
 import { carregarTabelasBancos, salvarTabelasBancos } from "@/lib/simulacao/tabelas";
 import { publicarDadosDaLoja } from "@/lib/vitrine-client";
 import type { BancoTabela } from "@/lib/simulacao/types";
 
-const vazio: DadosLoja = { nome: "", site: "", whatsapp: "", logo: "" };
+const vazio: DadosLoja = { nome: "", site: "", whatsapp: "", logo: "", temaId: "garagem" };
 
 export default function Configuracoes() {
   const [dados, setDados] = useState<DadosLoja>(vazio);
@@ -34,7 +35,7 @@ export default function Configuracoes() {
     salvarDadosLoja(dados);
     salvarTabelasBancos(tabelas);
     try {
-      await publicarDadosDaLoja({ nome: dados.nome, whatsapp: dados.whatsapp, logo: dados.logo });
+      await publicarDadosDaLoja({ nome: dados.nome, whatsapp: dados.whatsapp, logo: dados.logo, temaId: dados.temaId });
       setSalvo(true);
     } catch {
       setSalvo(true);
@@ -72,6 +73,31 @@ export default function Configuracoes() {
           <div className="grid h-20 w-32 place-items-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">{dados.logo ? <img src={dados.logo} alt="Logo da loja" className="h-full w-full object-contain"/> : <span className="text-[11px] text-slate-400">Sem logo</span>}</div>
           <label className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><input type="file" accept="image/*" className="sr-only" onChange={escolherLogo}/>Escolher imagem</label>
           {dados.logo && <button type="button" onClick={() => set("logo", "")} className="text-xs font-semibold text-red-600">Remover</button>}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-slate-600">Visual do site da loja</p>
+        <p className="mt-1 text-sm text-slate-500">Ozy, Indy Car e a próxima loja usam o mesmo sistema — cada uma escolhe uma identidade. Não precisa redesenhar o site.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {TEMAS_LOJA.map(tema => {
+            const ativo = dados.temaId === tema.id;
+            return (
+              <button
+                key={tema.id}
+                type="button"
+                onClick={() => set("temaId", tema.id)}
+                className={`rounded-xl border p-3 text-left ${ativo ? "border-brand-600 ring-2 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}
+              >
+                <span className="flex h-12 overflow-hidden rounded-lg">
+                  <span className="w-1/3" style={{ background: `rgb(${tema.night})` }} />
+                  <span className="w-1/3" style={{ background: `rgb(${tema.cobalt})` }} />
+                  <span className="w-1/3" style={{ background: `rgb(${tema.paper})` }} />
+                </span>
+                <span className="mt-2 block text-sm font-semibold text-slate-900">{tema.nome}</span>
+                <span className="mt-0.5 block text-xs text-slate-500">{tema.resumo} · header {tema.header}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
       <div className="border-t border-slate-100 pt-6">

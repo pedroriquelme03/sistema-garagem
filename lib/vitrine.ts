@@ -27,12 +27,48 @@ export type LojaVitrine = {
   nome: string;
   whatsapp: string;
   logoSrc: string;
+  temaId: string;
 };
 
-export function nomeVitrine(veiculo: Pick<VeiculoVitrine, "marca" | "modelo">): string {
+export function nomeVitrine(veiculo: Pick<VeiculoVitrine, "marca" | "modelo" | "versao">): string {
+  return [veiculo.marca, veiculo.modelo, veiculo.versao].filter(Boolean).join(" ") || "Veículo";
+}
+
+export function tituloCurto(veiculo: Pick<VeiculoVitrine, "marca" | "modelo">): string {
   return [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ") || "Veículo";
 }
 
 export function anoVitrine(veiculo: Pick<VeiculoVitrine, "anoFabricacao" | "anoModelo">): string {
   return [veiculo.anoFabricacao, veiculo.anoModelo].filter(Boolean).join("/") || "—";
+}
+
+export function marcaNormalizada(marca?: string): string {
+  return (marca ?? "").trim().toUpperCase();
+}
+
+export function marcasDoEstoque(veiculos: VeiculoVitrine[]): { marca: string; quantidade: number }[] {
+  const mapa = new Map<string, number>();
+  for (const veiculo of veiculos) {
+    const marca = marcaNormalizada(veiculo.marca);
+    if (!marca) continue;
+    mapa.set(marca, (mapa.get(marca) ?? 0) + 1);
+  }
+  return [...mapa.entries()]
+    .map(([marca, quantidade]) => ({ marca, quantidade }))
+    .sort((a, b) => a.marca.localeCompare(b.marca, "pt-BR"));
+}
+
+export function modelosDoEstoque(veiculos: VeiculoVitrine[], marca?: string): { modelo: string; quantidade: number }[] {
+  const filtro = marcaNormalizada(marca);
+  const mapa = new Map<string, number>();
+  for (const veiculo of veiculos) {
+    if (filtro && marcaNormalizada(veiculo.marca) !== filtro) continue;
+    const modelo = (veiculo.modelo ?? "").trim();
+    if (!modelo) continue;
+    const chave = modelo.toUpperCase();
+    mapa.set(chave, (mapa.get(chave) ?? 0) + 1);
+  }
+  return [...mapa.entries()]
+    .map(([modelo, quantidade]) => ({ modelo, quantidade }))
+    .sort((a, b) => a.modelo.localeCompare(b.modelo, "pt-BR"));
 }
