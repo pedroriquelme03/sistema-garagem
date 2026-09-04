@@ -34,6 +34,14 @@ export function IconeFacebook({ className = "h-4 w-4" }: { className?: string })
   );
 }
 
+export function IconeFunil({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M4 5h16l-6.2 7.4V18l-3.6 2v-7.6L4 5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconeWhatsapp({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>

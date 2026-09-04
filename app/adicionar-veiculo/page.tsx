@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, Suspense, useEffect, useRef, useState } from "react";
+import { useAcesso } from "@/components/AcessoProvider";
+import { CadeadoUpgrade } from "@/components/FaixaUpgrade";
+import { temRecurso } from "@/lib/acesso/tipos";
 import type { FipeEntry, VehicleInfo } from "@/lib/placa";
 import { carregarFotosDoVeiculo, salvarFotosDoVeiculo } from "@/lib/fotos";
 import { publicarVeiculoNoSite } from "@/lib/vitrine-client";
@@ -53,6 +56,8 @@ function family(value: string) {
 
 function AdicionarVeiculo() {
   const searchParams = useSearchParams();
+  const { sessao } = useAcesso();
+  const comFipe = temRecurso(sessao?.loja, "fipe");
   const editId = searchParams.get("editar");
   const [form, setForm] = useState<Form>(initial);
   const [options, setOptions] = useState<FipeEntry[]>([]);
@@ -198,11 +203,11 @@ ${stat(form.garantia, "Garantia")}
       const json: { ok: boolean; data?: VehicleInfo; error?: string } = await response.json();
       if (!json.ok || !json.data) { setError(json.error ?? "Veículo não encontrado."); return; }
       const vehicle = json.data;
-      setOptions(vehicle.fipe);
-      setFipe(vehicle.fipe[0]?.valor ?? null);
-      const modeloSugerido = family(vehicle.fipe[0]?.descricao ?? vehicle.modelo ?? "");
-      setForm(old => ({ ...old, placa: plate(vehicle.placa || placa), marca: vehicle.marca ?? old.marca, modelo: modeloSugerido || old.modelo, versao: vehicle.fipe[0]?.descricao ?? vehicle.versao ?? old.versao, anoFabricacao: vehicle.ano ?? old.anoFabricacao, anoModelo: vehicle.anoModelo ?? old.anoModelo, cor: vehicle.cor ?? old.cor, combustivel: fuel(vehicle.combustivel) || old.combustivel, chassi: vehicle.chassi ?? old.chassi, renavam: vehicle.renavam ?? old.renavam, carroceria: vehicle.segmento ?? old.carroceria })); setAlterado(true);
-      if (vehicle.marca) {
+      setOptions(comFipe ? vehicle.fipe : []);
+      setFipe(comFipe ? vehicle.fipe[0]?.valor ?? null : null);
+      const modeloSugerido = family((comFipe ? vehicle.fipe[0]?.descricao : undefined) ?? vehicle.modelo ?? "");
+      setForm(old => ({ ...old, placa: plate(vehicle.placa || placa), marca: vehicle.marca ?? old.marca, modelo: modeloSugerido || old.modelo, versao: (comFipe ? vehicle.fipe[0]?.descricao : undefined) ?? vehicle.versao ?? old.versao, anoFabricacao: vehicle.ano ?? old.anoFabricacao, anoModelo: vehicle.anoModelo ?? old.anoModelo, cor: vehicle.cor ?? old.cor, combustivel: fuel(vehicle.combustivel) || old.combustivel, chassi: vehicle.chassi ?? old.chassi, renavam: vehicle.renavam ?? old.renavam, carroceria: vehicle.segmento ?? old.carroceria })); setAlterado(true);
+      if (comFipe && vehicle.marca) {
         const anoCatalogo = vehicle.anoModelo ?? vehicle.ano ?? "";
         void fetch(`/api/fipe-modelos?marca=${encodeURIComponent(vehicle.marca)}&ano=${encodeURIComponent(anoCatalogo)}`)
           .then(response => response.json())
@@ -240,13 +245,22 @@ ${stat(form.garantia, "Garantia")}
   return <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:px-8">
     <header className="mb-7 flex items-end justify-between"><div><p className="text-sm font-medium text-brand-600">Estoque</p><h1 className="mt-1 text-3xl font-bold text-slate-950">{editId ? "Editar veículo" : "Adicionar veículo"}</h1><p className="mt-1 text-sm text-slate-500">Consulte a placa para acelerar o preenchimento.</p></div><Link href="/estoque" className="text-sm font-semibold text-slate-600">← Estoque</Link></header>
     <form onSubmit={salvar} className="space-y-6">
-      <section className="rounded-2xl border border-brand-100 bg-brand-50 p-5 sm:p-6"><p className="text-sm font-semibold text-slate-800">Buscar dados pela placa</p><p className="mt-1 text-xs text-slate-500">Depois da busca, escolha a versão correspondente na FIPE.</p><div className="mt-4 flex flex-col gap-3 sm:flex-row"><input value={form.placa} onChange={e => set("placa", plate(e.target.value))} placeholder="ABC-1234" className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold uppercase tracking-widest outline-none focus:border-brand-500"/><button type="button" onClick={buscar} disabled={loading} className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Buscando dados..." : "Buscar veículo"}</button></div>{fipe && <p className="mt-3 text-sm text-emerald-700">FIPE de referência: <strong>{fipe}</strong></p>}</section>
+      {!comFipe ? (
+        <CadeadoUpgrade
+          recurso="fipe"
+          titulo="FIPE na hora de precificar"
+          texto="A placa já preenche marca, modelo e ano. O valor de tabela para comparar compra e anúncio desbloqueia no Pro."
+        >
+          <p className="text-sm font-medium text-slate-700">FIPE de referência: R$ 00.000,00</p>
+        </CadeadoUpgrade>
+      ) : null}
+      <section className="rounded-2xl border border-brand-100 bg-brand-50 p-5 sm:p-6"><p className="text-sm font-semibold text-slate-800">Buscar dados pela placa</p><p className="mt-1 text-xs text-slate-500">{comFipe ? "Depois da busca, escolha a versão correspondente na FIPE." : "Puxa marca, modelo, ano e dados do veículo. O valor FIPE é o degrau do Pro."}</p><div className="mt-4 flex flex-col gap-3 sm:flex-row"><input value={form.placa} onChange={e => set("placa", plate(e.target.value))} placeholder="ABC-1234" className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold uppercase tracking-widest outline-none focus:border-brand-500"/><button type="button" onClick={buscar} disabled={loading} className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{loading ? "Buscando dados..." : "Buscar veículo"}</button></div>{comFipe && fipe && <p className="mt-3 text-sm text-emerald-700">FIPE de referência: <strong>{fipe}</strong></p>}</section>
       {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}{done && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{editId ? "Veículo atualizado" : "Veículo cadastrado"}. {form.status === "Vendido" ? "Saiu do site da loja." : <>Publicado em <Link href="/loja" className="font-semibold underline" target="_blank">/loja</Link>.</>} <Link href="/estoque" className="font-semibold underline">Ver estoque</Link></p>}
       <Card title="Identificação do veículo"><Grid><Input label="Chassi" k="chassi" form={form} set={set}/><Input label="Renavam" k="renavam" form={form} set={set}/><Select label="Tipo" k="tipo" form={form} set={set} options={["Automóvel", "Motocicleta", "Caminhonete", "Caminhão"]}/><Select label="Novo ou usado" k="condicao" form={form} set={set} options={["Usado", "Novo"]}/></Grid></Card>
       <Card title="Dados do veículo"><Grid><Input label="Marca" k="marca" form={form} set={set} required/>{fipeModels.length ? <label className="text-xs font-semibold text-slate-600">Modelo (catálogo FIPE)<select value={form.modelo} onChange={e => { setAlterado(true); setDone(false); setAvisoSalvar(null); setForm(old => ({ ...old, modelo: e.target.value, versao: "" })); }} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500"><option value="">Selecione o modelo</option>{fipeModels.map(model => <option key={model}>{model}</option>)}</select></label> : <Input label="Modelo" k="modelo" form={form} set={set} required/>}{versions.length ? <Select label="Versão (opções FIPE)" k="versao" form={form} set={set} options={versions}/> : <Input label="Versão" k="versao" form={form} set={set}/>}<Input label="Ano fabricação" k="anoFabricacao" form={form} set={set}/><Input label="Ano modelo" k="anoModelo" form={form} set={set}/></Grid></Card>
       <Card title="Características físicas"><Grid><Input label="Cor principal" k="cor" form={form} set={set}/><Select label="Combustível" k="combustivel" form={form} set={set} options={["", "Flex (Álcool / Gasolina)", "Gasolina", "Diesel", "Etanol", "Elétrico", "Híbrido", "GNV"]}/><Select label="Portas" k="portas" form={form} set={set} options={["2", "3", "4", "5"]}/><Input label="Carroceria" k="carroceria" form={form} set={set}/><Select label="Câmbio" k="cambio" form={form} set={set} options={["Manual", "Automático", "Automatizado", "CVT"]}/><Input label="Quilometragem" k="km" form={form} set={set} required placeholder="Ex.: 48.000"/></Grid></Card>
       <Card title="Anúncio"><Grid><Select label="Status do veículo" k="status" form={form} set={set} options={["Cadastrado", "Em preparação", "Anunciado", "Negociação", "Vendido"]}/><label className="text-xs font-semibold text-slate-600 sm:col-span-2">Descrição do veículo<textarea value={form.descricao} onChange={e => set("descricao", e.target.value)} rows={4} placeholder="Opcional: descrição para o anúncio, diferenciais e acessórios." className="mt-2 w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand-500"/></label></Grid></Card>
-      <Card title="Garantia, estoque e valores"><Grid><Select label="Garantia" k="garantia" form={form} set={set} options={["Sem garantia", "3 meses", "6 meses", "12 meses"]}/><Select label="Tipo de estoque" k="tipoEstoque" form={form} set={set} options={["Próprio", "Consignado", "Repasse"]}/><Input label="Valor de compra" k="valorCompra" form={form} set={set} placeholder="R$ 0,00" currency/><div><Input label="Valor de venda" k="valorVenda" form={form} set={set} required placeholder="R$ 0,00" currency/>{fipe && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">Referência de mercado (FIPE): <strong>{fipe}</strong></p>}{margemAtual !== null && <p className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${margemAtual >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>Margem bruta (venda − compra): <strong>{formatBRL(margemAtual)}</strong></p>}</div></Grid></Card>
+      <Card title="Garantia, estoque e valores"><Grid><Select label="Garantia" k="garantia" form={form} set={set} options={["Sem garantia", "3 meses", "6 meses", "12 meses"]}/><Select label="Tipo de estoque" k="tipoEstoque" form={form} set={set} options={["Próprio", "Consignado", "Repasse"]}/><Input label="Valor de compra" k="valorCompra" form={form} set={set} placeholder="R$ 0,00" currency/><div><Input label="Valor de venda" k="valorVenda" form={form} set={set} required placeholder="R$ 0,00" currency/>{comFipe && fipe && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">Referência de mercado (FIPE): <strong>{fipe}</strong></p>}{margemAtual !== null && <p className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${margemAtual >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>Margem bruta (venda − compra): <strong>{formatBRL(margemAtual)}</strong></p>}</div></Grid></Card>
       {editId && <Card title="Movimentações">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Entrada em estoque</h3>

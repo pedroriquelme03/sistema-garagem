@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { useAcesso } from "@/components/AcessoProvider";
+import { CadeadoUpgrade, IconeCadeado } from "@/components/FaixaUpgrade";
+import { temRecurso } from "@/lib/acesso/tipos";
+import CalculadoraRetorno from "@/components/CalculadoraRetorno";
 import { formatBRL, parseBRL } from "@/lib/anuncios";
 import { listarClientes, type Cliente } from "@/lib/clientes";
 import { listarSimulacoesPorCliente, salvarSimulacao } from "@/lib/simulacao/historico";
@@ -10,6 +14,8 @@ import { estimarOfertas } from "@/lib/simulacao/price";
 import { carregarTabelasBancos } from "@/lib/simulacao/tabelas";
 import { PRAZOS_PADRAO, type OfertaSimulacao, type SimulacaoApiResult, type SimulacaoSalva } from "@/lib/simulacao/types";
 import { listarVeiculos, nomeVeiculo, type Veiculo } from "@/lib/veiculos";
+
+type Aba = "parcelas" | "retorno";
 
 function money(value: string) {
   const amount = parseBRL(value);
@@ -136,16 +142,7 @@ function SimularFinanciamento() {
   const melhorEstimativa = useMemo(() => ofertas[0], [ofertas]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8">
-      <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-medium text-brand-600">Financiamento</p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">Simular parcelas</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">Um cadastro, várias tabelas. Enquanto não houver hub/banco homologado, o cálculo é estimativa Price — rotulado com clareza, sem fingir aprovação.</p>
-        </div>
-        <Link href="/configuracoes" className="text-sm font-semibold text-brand-600">Editar taxas da loja →</Link>
-      </header>
-
+    <div>
       <form onSubmit={simular} className="space-y-6">
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -268,10 +265,78 @@ function TabelaOfertas({ ofertas, mostrarStatus }: { ofertas: OfertaSimulacao[];
   );
 }
 
+function Financiamento() {
+  const searchParams = useSearchParams();
+  const { sessao } = useAcesso();
+  const bancosMaster = temRecurso(sessao?.loja, "fandi") || temRecurso(sessao?.loja, "bv");
+  const [aba, setAba] = useState<Aba>(searchParams.get("aba") === "retorno" && bancosMaster ? "retorno" : "parcelas");
+  const retorno = aba === "retorno";
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8">
+      <header className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-sm font-medium text-brand-600">Financiamento</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950">{retorno ? "Retorno financeiro" : "Simular parcelas"}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            {retorno
+              ? "R0 a R6 sobre o valor financiado, menos ILA, menos imposto. 20% do líquido vai para o vendedor; o restante fica na loja."
+              : bancosMaster
+                ? "Master inclui FANDI e Banco BV no sistema. Enquanto o contrato não estiver homologado, o cálculo continua como estimativa Price — rotulado com clareza, sem fingir aprovação."
+                : "Estimativa Price faz parte do Essencial: um cadastro, várias tabelas. FANDI e Banco BV ficam no Master. No Pro, a FIPE ajuda a precificar o carro antes de simular."}
+          </p>
+        </div>
+        {retorno ? null : <Link href="/configuracoes" className="text-sm font-semibold text-brand-600">Editar taxas da loja →</Link>}
+      </header>
+
+      <div className="mb-6 flex gap-6 border-b border-slate-200">
+        <button type="button" onClick={() => setAba("parcelas")} className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-1 pb-3 text-sm font-semibold ${!retorno ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>Parcelas</button>
+        <button type="button" onClick={() => setAba("retorno")} className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-1 pb-3 text-sm font-semibold ${retorno ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
+          Retorno
+          {!bancosMaster ? <IconeCadeado className="h-3.5 w-3.5 text-slate-400" /> : null}
+        </button>
+      </div>
+
+      {retorno && !bancosMaster ? (
+        <CadeadoUpgrade
+          recurso="fandi"
+          titulo="Retorno financeiro"
+          texto="R0 a R6, ILA e comissão do vendedor. Desbloqueia no Master, junto com FANDI e Banco BV."
+        >
+          <p className="text-sm text-slate-600">Líquido da loja · comissão do vendedor · ILA FIPE</p>
+        </CadeadoUpgrade>
+      ) : null}
+
+      {!retorno ? (
+        <div className="space-y-4">
+          <CadeadoUpgrade
+            recurso="fipe"
+            titulo="Parcela a partir da FIPE"
+            texto="A simulação Price já está liberada. No Pro o valor de tabela entra no cadastro do carro, então a parcela parte de um preço de mercado."
+          />
+          <CadeadoUpgrade
+            recurso="fandi"
+            titulo="FANDI e Banco BV"
+            texto="Simular nos bancos dentro do sistema. Desbloqueia no Master."
+          >
+            <p className="text-sm text-slate-600">Tabelas FANDI · Banco BV · retorno da loja</p>
+          </CadeadoUpgrade>
+          {bancosMaster ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              FANDI e Banco BV entram neste plano para simular tudo dentro do sistema. A conexão real com os bancos ainda depende do contrato — até lá as ofertas aparecem como estimativa.
+            </p>
+          ) : null}
+          <SimularFinanciamento />
+        </div>
+      ) : bancosMaster ? <CalculadoraRetorno /> : null}
+    </div>
+  );
+}
+
 export default function Page() {
   return (
     <Suspense fallback={<div className="px-4 py-10 text-sm text-slate-500">Carregando simulador...</div>}>
-      <SimularFinanciamento />
+      <Financiamento />
     </Suspense>
   );
 }

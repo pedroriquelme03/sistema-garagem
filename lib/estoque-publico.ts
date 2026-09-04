@@ -1,10 +1,26 @@
+import { listarLojas, lojaPorId } from "@/lib/acesso/banco";
+import { planoValido, type PlanoLoja } from "@/lib/acesso/tipos";
 import { ESTOQUE_DEMO } from "@/lib/estoque-demo";
 import { resolverLoja, type LojaPublica, type OrigemEstoque } from "@/lib/loja-publico";
 import type { VeiculoVitrine } from "@/lib/vitrine";
 import { buscarNaVitrine, carregarLojaVitrine, listarVitrine } from "@/lib/vitrine-store";
 
+function planoDaVitrine(vitrine: { plano?: string; lojaId?: string; nome?: string }): PlanoLoja {
+  if (planoValido(vitrine.plano)) return vitrine.plano;
+  if (vitrine.lojaId) {
+    const loja = lojaPorId(vitrine.lojaId);
+    if (loja) return loja.plano;
+  }
+  const lojas = listarLojas();
+  if (lojas.length === 1) return lojas[0].plano;
+  const nome = (vitrine.nome ?? "").trim().toLowerCase();
+  const porNome = nome ? lojas.find(item => item.nome.trim().toLowerCase() === nome) : undefined;
+  return porNome?.plano ?? "essencial";
+}
+
 export async function carregarLojaPublica(): Promise<LojaPublica> {
-  return resolverLoja(await carregarLojaVitrine());
+  const vitrine = await carregarLojaVitrine();
+  return resolverLoja({ ...vitrine, plano: planoDaVitrine(vitrine) });
 }
 
 export async function listarEstoquePublico(): Promise<{ veiculos: VeiculoVitrine[]; origem: OrigemEstoque }> {

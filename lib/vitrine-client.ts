@@ -45,7 +45,7 @@ export async function tirarVeiculoDoSite(id: string) {
   await fetch(`/api/vitrine/${id}`, { method: "DELETE" });
 }
 
-export async function publicarDadosDaLoja(dados: { nome: string; whatsapp: string; logo: string; temaId?: string }) {
+export async function publicarDadosDaLoja(dados: { nome: string; whatsapp: string; logo: string; temaId?: string; endereco?: string }) {
   const resp = await fetch("/api/vitrine/loja", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

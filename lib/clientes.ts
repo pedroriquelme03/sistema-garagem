@@ -1,3 +1,5 @@
+import { gravarStorage, lerStorage } from "@/lib/armazenamento";
+
 export type Pessoa = "fisica" | "juridica";
 export type ClienteForm = Record<string, string>;
 export type Cliente = ClienteForm & { id: string; pessoa: Pessoa };
@@ -17,20 +19,20 @@ export const phoneFormat = (value: string) => {
 export const docFormat = (value: string, pessoa: Pessoa) => { const d = value.replace(/\D/g, "").slice(0, pessoa === "fisica" ? 11 : 14); return pessoa === "fisica" ? d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2") : d.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2"); };
 
 export function listarClientes(): Cliente[] {
-  try { return JSON.parse(localStorage.getItem(chave) ?? "[]"); } catch { return []; }
+  return lerStorage<Cliente[]>(chave, []);
 }
 
 export function salvarCliente(cliente: Cliente): Cliente[] {
   const todos = listarClientes();
   const existe = todos.some(item => item.id === cliente.id);
   const atualizados = existe ? todos.map(item => item.id === cliente.id ? cliente : item) : [cliente, ...todos];
-  localStorage.setItem(chave, JSON.stringify(atualizados));
+  gravarStorage(chave, atualizados);
   return atualizados;
 }
 
 export function excluirCliente(id: string): Cliente[] {
   const atualizados = listarClientes().filter(item => item.id !== id);
-  localStorage.setItem(chave, JSON.stringify(atualizados));
+  gravarStorage(chave, atualizados);
   return atualizados;
 }
 

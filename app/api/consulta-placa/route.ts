@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lojaPorId } from "@/lib/acesso/banco";
+import { sessaoDoRequest } from "@/lib/acesso/sessao";
+import { temRecurso } from "@/lib/acesso/tipos";
 import {
   ConsultaResult,
   normalizarPlaca,
@@ -24,8 +27,8 @@ export const dynamic = "force-dynamic";
 //                          testa sem gastar crédito.
 //
 //   FIPE_GRATIS       "0" desliga a busca gratuita de FIPE (parallelum).
-//                     Ligada por padrão: o valor FIPE vem de graça, cruzando
-//                     marca/modelo/ano — assim não se paga o adicional de FIPE.
+//                     Ligada por padrão no Pro/Master. No Essencial a API
+//                     devolve só os dados do veículo, sem valor de tabela.
 //
 // Sem PLACA_API_URL configurada => MODO DEMO (dados de exemplo).
 // ---------------------------------------------------------------------------
@@ -154,6 +157,15 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await consultarProvedor(placa);
-  if (result.ok) await enriquecerFipe(result.data);
+  const sessao = await sessaoDoRequest(req);
+  const loja = sessao?.lojaId ? lojaPorId(sessao.lojaId) : null;
+  const comFipe = temRecurso(loja, "fipe");
+  if (result.ok && result.data) {
+    if (comFipe) await enriquecerFipe(result.data);
+    else {
+      result.data.fipe = [];
+      delete result.data.fipeFonte;
+    }
+  }
   return NextResponse.json(result, { status: result.ok ? 200 : 502 });
 }

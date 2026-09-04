@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
+import { LOJA_PADRAO } from "./loja-publico";
 import type { LojaVitrine, VeiculoVitrine } from "./vitrine";
 
 const dataDir = () => path.join(process.cwd(), "data");
@@ -73,9 +74,19 @@ export async function salvarArquivosDeFoto(
 export async function carregarLojaVitrine(): Promise<LojaVitrine> {
   try {
     const bruto = await readFile(lojaPath(), "utf8");
-    return { nome: "", whatsapp: "", logoSrc: "", temaId: "garagem", ...JSON.parse(bruto) };
+    const salvo = JSON.parse(bruto) as Partial<LojaVitrine>;
+    return {
+      nome: "",
+      whatsapp: "",
+      logoSrc: "",
+      temaId: "garagem",
+      ...salvo,
+      endereco: (salvo.endereco ?? "").trim() || LOJA_PADRAO.endereco,
+      plano: salvo.plano,
+      lojaId: salvo.lojaId,
+    };
   } catch {
-    return { nome: "", whatsapp: "", logoSrc: "", temaId: "garagem" };
+    return { nome: "", whatsapp: "", logoSrc: "", temaId: "garagem", endereco: LOJA_PADRAO.endereco };
   }
 }
 
@@ -86,6 +97,9 @@ export async function salvarLojaVitrine(loja: LojaVitrine): Promise<LojaVitrine>
     whatsapp: loja.whatsapp.trim(),
     logoSrc: loja.logoSrc,
     temaId: loja.temaId || "garagem",
+    endereco: (loja.endereco ?? "").trim(),
+    plano: loja.plano,
+    lojaId: loja.lojaId,
   };
   await writeFile(lojaPath(), JSON.stringify(registro, null, 2), "utf8");
   return registro;

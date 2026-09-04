@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lojaPorId } from "@/lib/acesso/banco";
+import { sessaoDoRequest } from "@/lib/acesso/sessao";
+import { temRecurso } from "@/lib/acesso/tipos";
 
 export const dynamic = "force-dynamic";
 const BASE = "https://fipe.parallelum.com.br/api/v2/cars";
@@ -15,6 +18,11 @@ function familia(nome: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const sessao = await sessaoDoRequest(req);
+  const loja = sessao?.lojaId ? lojaPorId(sessao.lojaId) : null;
+  if (!temRecurso(loja, "fipe")) {
+    return NextResponse.json({ ok: false, error: "Catálogo FIPE entra no plano Pro." }, { status: 403 });
+  }
   const marca = req.nextUrl.searchParams.get("marca")?.trim();
   const ano = req.nextUrl.searchParams.get("ano")?.match(/\d{4}/)?.[0];
   if (!marca) return NextResponse.json({ ok: false, error: "Informe a marca." }, { status: 400 });

@@ -1,4 +1,5 @@
 import { parseBRL } from "@/lib/anuncios";
+import { gravarStorage, lerStorage } from "@/lib/armazenamento";
 
 export type Foto = { id?: string; url?: string; nome?: string };
 export type Veiculo = {
@@ -16,7 +17,7 @@ export type Veiculo = {
 const chave = "garagem-pro-estoque";
 
 export function listarVeiculos(): Veiculo[] {
-  try { return JSON.parse(localStorage.getItem(chave) ?? "[]"); } catch { return []; }
+  return lerStorage<Veiculo[]>(chave, []);
 }
 
 export function salvarVeiculo(veiculo: Veiculo): Veiculo[] {
@@ -24,13 +25,13 @@ export function salvarVeiculo(veiculo: Veiculo): Veiculo[] {
   const registro = { ...veiculo, criadoEm: veiculo.criadoEm ?? new Date().toISOString() };
   const existe = todos.some(item => item.id === registro.id);
   const atualizados = existe ? todos.map(item => item.id === registro.id ? registro : item) : [registro, ...todos];
-  localStorage.setItem(chave, JSON.stringify(atualizados));
+  gravarStorage(chave, atualizados);
   return atualizados;
 }
 
 export function excluirVeiculo(id: string): Veiculo[] {
   const atualizados = listarVeiculos().filter(item => item.id !== id);
-  localStorage.setItem(chave, JSON.stringify(atualizados));
+  gravarStorage(chave, atualizados);
   return atualizados;
 }
 

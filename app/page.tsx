@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CartaoProximoPlano } from "@/components/FaixaUpgrade";
 import { formatBRL } from "@/lib/anuncios";
 import { resumoOperacao, type ResumoOperacao } from "@/lib/metricas";
 import { nomeVeiculo, textoDiasNoPatio } from "@/lib/veiculos";
@@ -40,6 +41,8 @@ export default function Dashboard() {
         <Metric title="Clientes" value={String(resumo.clientes)} info={resumo.clientes ? "Base cadastrada neste PC" : "Nenhum cliente ainda"} />
         <Metric title="Negociações" value={String(resumo.negociacoes)} info={resumo.vendas ? `${resumo.vendas} venda${resumo.vendas === 1 ? "" : "s"} · ${formatBRL(resumo.valorVendas)}` : "Nenhuma venda registrada"} />
       </section>
+
+      <CartaoProximoPlano />
 
       {vazio && (
         <section className="mt-7 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">

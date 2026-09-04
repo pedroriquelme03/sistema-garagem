@@ -1,3 +1,5 @@
+import { gravarStorage, lerStorage } from "@/lib/armazenamento";
+
 export type FormaPagamento = "Pix" | "Cartão" | "Financiamento" | "Dinheiro" | "Transferência";
 export type ItemPagamento = { id: string; forma: FormaPagamento; valor: string; banco?: string };
 export type NegociacaoTipo = "Venda" | "Compra" | "Consignação" | "Troca";
@@ -22,14 +24,14 @@ const chave = "garagem-pro-negociacoes";
 const tiposDeEntrada: NegociacaoTipo[] = ["Compra", "Troca", "Consignação"];
 
 export function listarNegociacoes(): Negociacao[] {
-  try { return JSON.parse(localStorage.getItem(chave) ?? "[]"); } catch { return []; }
+  return lerStorage<Negociacao[]>(chave, []);
 }
 
 export function salvarNegociacao(negociacao: Negociacao): Negociacao[] {
   const todas = listarNegociacoes();
   const existe = todas.some(item => item.id === negociacao.id);
   const atualizadas = existe ? todas.map(item => item.id === negociacao.id ? negociacao : item) : [negociacao, ...todas];
-  localStorage.setItem(chave, JSON.stringify(atualizadas));
+  gravarStorage(chave, atualizadas);
   return atualizadas;
 }
 

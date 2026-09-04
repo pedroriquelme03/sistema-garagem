@@ -28,6 +28,9 @@ export type LojaVitrine = {
   whatsapp: string;
   logoSrc: string;
   temaId: string;
+  endereco?: string;
+  plano?: "essencial" | "pro" | "master";
+  lojaId?: string;
 };
 
 export function nomeVitrine(veiculo: Pick<VeiculoVitrine, "marca" | "modelo" | "versao">): string {

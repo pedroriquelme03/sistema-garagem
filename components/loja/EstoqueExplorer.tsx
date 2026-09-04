@@ -2,8 +2,8 @@
 
 import { useMemo, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import VeiculoCard from "@/components/loja/VeiculoCard";
 import CarrosselMarcas from "@/components/loja/CarrosselMarcas";
+import VeiculoCard from "@/components/loja/VeiculoCard";
 import { formatBRL } from "@/lib/anuncios";
 import { formatarKm, precoNumero } from "@/lib/loja-publico";
 import { anoVitrine, marcaNormalizada, marcasDoEstoque, modelosDoEstoque, nomeVitrine } from "@/lib/vitrine";
@@ -71,53 +71,45 @@ export default function EstoqueExplorer({ veiculos }: { veiculos: VeiculoVitrine
     <div>
       <section className="bg-patio-night py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <CarrosselMarcas marcas={marcas} ativa={marcaNormalizada(filtros.marca)} onEscolher={marca => setFiltro("marca", marca)} />
+          <CarrosselMarcas
+            marcas={marcas}
+            ativa={marcaNormalizada(filtros.marca)}
+            onEscolher={marca => setFiltro("marca", marca)}
+            filtro={
+              <div className="grid gap-3 rounded-xl bg-white p-4 text-patio-ink sm:grid-cols-3">
+                <label className="text-xs font-semibold">
+                  Modelo ou cor
+                  <input value={filtros.q} onChange={e => setFiltro("q", e.target.value)} placeholder="HB20, prata..." className="mt-1.5 w-full rounded-lg border border-patio-sand px-3 py-2 text-sm font-normal outline-none focus:border-patio-cobalt" />
+                </label>
+                <label className="text-xs font-semibold">
+                  Combustível
+                  <select value={filtros.combustivel} onChange={e => setFiltro("combustivel", e.target.value)} className="mt-1.5 w-full rounded-lg border border-patio-sand px-3 py-2 text-sm font-normal outline-none">
+                    <option value="">Todos</option>
+                    {combustiveis.map(item => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-semibold">
+                  Câmbio
+                  <select value={filtros.cambio} onChange={e => setFiltro("cambio", e.target.value)} className="mt-1.5 w-full rounded-lg border border-patio-sand px-3 py-2 text-sm font-normal outline-none">
+                    <option value="">Todos</option>
+                    {cambios.map(item => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+                {filtros.marca && modelos.length > 0 ? (
+                  <label className="text-xs font-semibold sm:col-span-3">
+                    Modelo em {filtros.marca}
+                    <select value={filtros.modelo} onChange={e => setFiltro("modelo", e.target.value)} className="mt-1.5 w-full rounded-lg border border-patio-sand px-3 py-2 text-sm font-normal outline-none">
+                      <option value="">Todos</option>
+                      {modelos.map(item => <option key={item.modelo} value={item.modelo}>{item.modelo}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
+            }
+          />
         </div>
       </section>
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[240px_1fr]">
-      <aside className="h-fit rounded-xl border border-patio-sand bg-white p-5 lg:sticky lg:top-24">
-        <p className="text-sm font-semibold text-patio-ink">Filtrar</p>
-        <label className="mt-4 block">
-          <span className="sr-only">Buscar veículo</span>
-          <input value={filtros.q} onChange={e => setFiltro("q", e.target.value)} placeholder="Modelo, cor..." className="w-full rounded-xl border border-patio-sand px-3 py-2.5 text-sm outline-none focus:border-patio-cobalt" />
-        </label>
-
-        {filtros.marca && modelos.length > 0 ? (
-          <div className="mt-6">
-            <p className="text-sm font-semibold text-patio-ink">Modelo em {filtros.marca}</p>
-            <ul className="mt-2 max-h-44 space-y-1 overflow-auto">
-              {modelos.map(item => {
-                const ativo = filtros.modelo.toUpperCase() === item.modelo;
-                return (
-                  <li key={item.modelo}>
-                    <button type="button" onClick={() => setFiltro("modelo", ativo ? "" : item.modelo)} className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm ${ativo ? "bg-patio-cobalt text-white" : "text-patio-ink hover:bg-patio-paper"}`}>
-                      <span>{item.modelo}</span>
-                      <span className={ativo ? "text-white/80" : "text-patio-mute"}>{item.quantidade}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : null}
-
-        <label className="mt-6 block text-sm font-semibold text-patio-ink">
-          Combustível
-          <select value={filtros.combustivel} onChange={e => setFiltro("combustivel", e.target.value)} className="mt-2 w-full rounded-xl border border-patio-sand px-3 py-2 text-sm font-normal outline-none">
-            <option value="">Todos</option>
-            {combustiveis.map(item => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </label>
-        <label className="mt-4 block text-sm font-semibold text-patio-ink">
-          Câmbio
-          <select value={filtros.cambio} onChange={e => setFiltro("cambio", e.target.value)} className="mt-2 w-full rounded-xl border border-patio-sand px-3 py-2 text-sm font-normal outline-none">
-            <option value="">Todos</option>
-            {cambios.map(item => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </label>
-      </aside>
-
-      <div>
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <h1 className="font-display text-3xl text-patio-ink">Estoque</h1>
         <p className="mt-1 text-sm text-patio-mute">
           {faixas.qtd} {faixas.qtd === 1 ? "veículo" : "veículos"}
@@ -138,7 +130,6 @@ export default function EstoqueExplorer({ veiculos }: { veiculos: VeiculoVitrine
             ))}
           </ul>
         )}
-      </div>
       </div>
     </div>
   );

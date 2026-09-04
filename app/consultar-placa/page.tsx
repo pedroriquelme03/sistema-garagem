@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAcesso } from "@/components/AcessoProvider";
+import { CadeadoUpgrade } from "@/components/FaixaUpgrade";
+import { temRecurso } from "@/lib/acesso/tipos";
 import type { VehicleInfo } from "@/lib/placa";
 import type { AnunciosResult } from "@/lib/anuncios";
 import { formatBRL, linkAnuncio, parseBRL } from "@/lib/anuncios";
@@ -18,6 +21,8 @@ function formatarPlaca(v: string): string {
 }
 
 export default function ConsultarPlacaPage() {
+  const { sessao } = useAcesso();
+  const comFipe = temRecurso(sessao?.loja, "fipe");
   const [placa, setPlaca] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -50,7 +55,27 @@ export default function ConsultarPlacaPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-10">
-      {/* Cabeçalho */}
+      {!comFipe ? (
+        <>
+          <header className="mb-8">
+            <h1 className="text-2xl font-bold text-slate-900">Consultar Placa</h1>
+          </header>
+          <CadeadoUpgrade
+            recurso="fipe"
+            titulo="Consultar placa com FIPE"
+            texto="Esta tela entra no Pro. Você consulta a placa e já vê o valor de tabela e os anúncios do modelo."
+          >
+            <div>
+              <p className="text-sm font-medium text-slate-700">Placa do veículo</p>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+                <p className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-lg font-semibold uppercase tracking-widest text-slate-400">ABC-1234</p>
+                <p className="rounded-xl bg-brand-600 px-6 py-3 text-center text-sm font-semibold text-white">Consultar</p>
+              </div>
+            </div>
+          </CadeadoUpgrade>
+        </>
+      ) : (
+        <>
       <header className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Consultar Placa</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -58,7 +83,6 @@ export default function ConsultarPlacaPage() {
         </p>
       </header>
 
-      {/* Formulário */}
       <form
         onSubmit={consultar}
         className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
@@ -109,12 +133,14 @@ export default function ConsultarPlacaPage() {
       )}
 
       {/* Resultado */}
-      {data && <Resultado data={data} />}
+      {data && <Resultado data={data} comFipe={comFipe} />}
+        </>
+      )}
     </div>
   );
 }
 
-function Resultado({ data }: { data: VehicleInfo }) {
+function Resultado({ data, comFipe }: { data: VehicleInfo; comFipe: boolean }) {
   const campos: [string, string | undefined][] = [
     ["Marca", data.marca],
     ["Modelo", data.modelo],
@@ -158,7 +184,7 @@ function Resultado({ data }: { data: VehicleInfo }) {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {data.fipe[0]?.valor && (
+            {comFipe && data.fipe[0]?.valor && (
               <div className="text-right">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">FIPE atual</p>
                 <p className="mt-0.5 text-base font-bold text-emerald-700">{data.fipe[0].valor}</p>
@@ -180,6 +206,8 @@ function Resultado({ data }: { data: VehicleInfo }) {
         </dl>
       </div>
 
+      {comFipe ? (
+        <>
       {/* FIPE */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
@@ -228,8 +256,20 @@ function Resultado({ data }: { data: VehicleInfo }) {
         </p>
       </div>
 
-      {/* Anúncios do mesmo modelo */}
       <Anuncios data={data} />
+        </>
+      ) : (
+        <CadeadoUpgrade
+          recurso="fipe"
+          titulo="Tabela FIPE e anúncios do modelo"
+          texto="O carro já veio. O valor de tabela e a comparação com o mercado mudam a avaliação de compra — desbloqueie no Pro."
+        >
+          <div className="flex items-end justify-between">
+            <p className="text-sm font-medium text-slate-700">Versão correspondente</p>
+            <p className="text-xl font-bold text-emerald-700">R$ 00.000,00</p>
+          </div>
+        </CadeadoUpgrade>
+      )}
     </div>
   );
 }

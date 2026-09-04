@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState, type ReactNode } from "react";
+import { IconeFunil } from "@/components/loja/Icones";
 import MarcaLogo from "@/components/loja/MarcaLogo";
 
 type Item = { marca: string; quantidade: number };
@@ -10,13 +11,16 @@ export default function CarrosselMarcas({
   marcas,
   ativa,
   onEscolher,
+  filtro,
 }: {
   marcas: Item[];
   ativa?: string;
   onEscolher?: (marca: string) => void;
+  filtro?: ReactNode;
 }) {
   const faixa = useRef<HTMLDivElement>(null);
   const [busca, setBusca] = useState("");
+  const [filtroAberto, setFiltroAberto] = useState(false);
   const buscaSuave = useDeferredValue(busca);
   const visiveis = useMemo(() => {
     const q = buscaSuave.trim().toLowerCase();
@@ -37,16 +41,31 @@ export default function CarrosselMarcas({
           <h2 className="font-display text-2xl text-white sm:text-3xl">Buscar por marca</h2>
           <p className="mt-1 text-sm text-white/55">Só aparece o que tem no pátio agora.</p>
         </div>
-        <label className="block w-full max-w-xs">
-          <span className="sr-only">Filtrar marca</span>
-          <input
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            placeholder="Chevrolet, Fiat, Hyundai..."
-            className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/40"
-          />
-        </label>
+        <div className="flex w-full max-w-md items-center gap-2">
+          {filtro ? (
+            <button type="button" onClick={() => setFiltroAberto(aberto => !aberto)} className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium ${filtroAberto ? "border-white bg-white text-patio-ink" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}>
+              <IconeFunil className="h-4 w-4" />
+              Filtro
+            </button>
+          ) : (
+            <Link href="/loja/estoque" className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm font-medium text-white hover:bg-white/15">
+              <IconeFunil className="h-4 w-4" />
+              Filtro
+            </Link>
+          )}
+          <label className="block min-w-0 flex-1">
+            <span className="sr-only">Buscar marca</span>
+            <input
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Chevrolet, Fiat, Hyundai..."
+              className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/40"
+            />
+          </label>
+        </div>
       </div>
+
+      {filtroAberto && filtro ? <div className="mt-4">{filtro}</div> : null}
 
       <div className="relative mt-6">
         <button type="button" onClick={() => rolar(-1)} className="absolute -left-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-lg text-white hover:bg-white/25 md:grid" aria-label="Marcas anteriores">‹</button>

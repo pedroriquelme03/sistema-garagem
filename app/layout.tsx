@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
+import { AcessoProvider } from "@/components/AcessoProvider";
 
 export const metadata: Metadata = {
   title: "Garagem Pro | Gestão de veículos",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
-        <AppShell>{children}</AppShell>
+        <AcessoProvider>
+          <AppShell>{children}</AppShell>
+        </AcessoProvider>
       </body>
     </html>
   );
