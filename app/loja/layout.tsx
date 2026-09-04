@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Sora } from "next/font/google";
+import { Instrument_Serif, Outfit, Sora } from "next/font/google";
 import LojaChrome from "@/components/loja/LojaChrome";
 import { carregarLojaPublica, listarEstoquePublico } from "@/lib/estoque-publico";
 
@@ -16,6 +16,14 @@ const sora = Sora({
   display: "swap",
 });
 
+const instrument = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-loja-serif",
+  display: "swap",
+});
+
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -26,7 +34,7 @@ export const metadata: Metadata = {
 export default async function LojaLayout({ children }: { children: React.ReactNode }) {
   const [loja, estoque] = await Promise.all([carregarLojaPublica(), listarEstoquePublico()]);
   return (
-    <div className={`${outfit.variable} ${sora.variable}`}>
+    <div className={`${outfit.variable} ${sora.variable} ${instrument.variable}`}>
       <LojaChrome loja={loja} origem={estoque.origem}>
         {children}
       </LojaChrome>

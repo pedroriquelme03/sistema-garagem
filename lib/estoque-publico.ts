@@ -1,9 +1,11 @@
-import { listarLojas, lojaPorId } from "@/lib/acesso/banco";
-import { planoValido, type PlanoLoja } from "@/lib/acesso/tipos";
+import { cookies } from "next/headers";
+import { listarLojas, listarPlanos, lojaPorId } from "@/lib/acesso/banco";
+import { COOKIE_SESSAO, planoValido, type PlanoLoja } from "@/lib/acesso/tipos";
+import { lerSessao } from "@/lib/acesso/sessao";
 import { ESTOQUE_DEMO } from "@/lib/estoque-demo";
 import { resolverLoja, type LojaPublica, type OrigemEstoque } from "@/lib/loja-publico";
 import type { VeiculoVitrine } from "@/lib/vitrine";
-import { buscarNaVitrine, carregarLojaVitrine, listarVitrine } from "@/lib/vitrine-store";
+import { buscarNaVitrine, carimbarPlanoVitrine, carregarLojaVitrine, listarVitrine } from "@/lib/vitrine-store";
 
 function planoDaVitrine(vitrine: { plano?: string; lojaId?: string; nome?: string }): PlanoLoja {
   if (planoValido(vitrine.plano)) return vitrine.plano;
@@ -20,7 +22,19 @@ function planoDaVitrine(vitrine: { plano?: string; lojaId?: string; nome?: strin
 
 export async function carregarLojaPublica(): Promise<LojaPublica> {
   const vitrine = await carregarLojaVitrine();
-  return resolverLoja({ ...vitrine, plano: planoDaVitrine(vitrine) });
+  const token = cookies().get(COOKIE_SESSAO)?.value;
+  const sessao = await lerSessao(token);
+  const daSessao = sessao?.lojaId ? lojaPorId(sessao.lojaId) : null;
+  if (daSessao) {
+    await carimbarPlanoVitrine({ id: daSessao.id, plano: daSessao.plano, nome: daSessao.nome });
+  }
+  const plano = daSessao?.plano ?? planoDaVitrine(vitrine);
+  return resolverLoja({
+    ...vitrine,
+    nome: vitrine.nome || daSessao?.nome || "",
+    plano,
+    lojaId: daSessao?.id ?? vitrine.lojaId,
+  }, listarPlanos());
 }
 
 export async function listarEstoquePublico(): Promise<{ veiculos: VeiculoVitrine[]; origem: OrigemEstoque }> {

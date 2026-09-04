@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { publicarNaVitrine, buscarNaVitrine, salvarArquivosDeFoto } from "@/lib/vitrine-store";
+import { lojaPorId } from "@/lib/acesso/banco";
+import { sessaoDoRequest } from "@/lib/acesso/sessao";
+import { carimbarPlanoVitrine, publicarNaVitrine, buscarNaVitrine, salvarArquivosDeFoto } from "@/lib/vitrine-store";
 import type { VeiculoVitrine } from "@/lib/vitrine";
 
 export const dynamic = "force-dynamic";
@@ -63,5 +65,8 @@ export async function POST(req: NextRequest) {
   };
 
   await publicarNaVitrine(veiculo);
+  const sessao = await sessaoDoRequest(req);
+  const conta = sessao?.lojaId ? lojaPorId(sessao.lojaId) : null;
+  if (conta) await carimbarPlanoVitrine({ id: conta.id, plano: conta.plano, nome: conta.nome });
   return NextResponse.json({ ok: true, veiculo });
 }

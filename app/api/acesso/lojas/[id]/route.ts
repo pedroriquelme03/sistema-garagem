@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { atualizarLoja, lojaPorId, usuariosDaLoja } from "@/lib/acesso/banco";
 import { sessaoDoRequest } from "@/lib/acesso/sessao";
+import { carimbarPlanoVitrine, carregarLojaVitrine } from "@/lib/vitrine-store";
 import type { PortalId } from "@/lib/integracoes";
 import type { PlanoLoja, StatusLoja } from "@/lib/acesso/tipos";
 
@@ -37,6 +38,10 @@ export async function PATCH(request: Request, { params }: Params) {
       plano: corpo?.plano,
       modulosLiberados: corpo?.modulosLiberados,
     });
+    const vitrine = await carregarLojaVitrine();
+    if (!vitrine.lojaId || vitrine.lojaId === loja.id) {
+      await carimbarPlanoVitrine({ id: loja.id, plano: loja.plano, nome: loja.nome });
+    }
     return NextResponse.json({ loja });
   } catch (erro) {
     return NextResponse.json({ erro: erro instanceof Error ? erro.message : "Não foi possível salvar." }, { status: 400 });

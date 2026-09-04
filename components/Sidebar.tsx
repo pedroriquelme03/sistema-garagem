@@ -59,8 +59,8 @@ function MenuLateral({ onNavigate }: { onNavigate?: () => void }) {
           {essencial
             ? "Vitrine simples. Destaque, marcas e temas estão com cadeado no Pro."
             : siteMaster
-              ? "As fotos do estoque sobem sozinhas para a vitrine."
-              : "Site completo do Pro. Identidade 100% da loja está com cadeado no Master."}
+              ? "Showroom cinematográfico. As fotos do estoque sobem sozinhas."
+              : "Site completo do Pro. O showroom Master está com cadeado."}
         </p>
         <Link href="/loja" target="_blank" onClick={onNavigate} className="mt-2 inline-block font-semibold text-brand-400 hover:text-white">Ver /loja →</Link>
       </div>

@@ -24,7 +24,7 @@ export default function VeiculoCapa({
   veiculo,
   className = "",
 }: {
-  veiculo: VeiculoVitrine;
+  veiculo: Pick<VeiculoVitrine, "marca" | "modelo" | "cor" | "fotos">;
   className?: string;
   prioridade?: boolean;
 }) {

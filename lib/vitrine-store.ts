@@ -105,6 +105,16 @@ export async function salvarLojaVitrine(loja: LojaVitrine): Promise<LojaVitrine>
   return registro;
 }
 
+export async function carimbarPlanoVitrine(conta: { id: string; plano?: LojaVitrine["plano"]; nome: string }) {
+  const atual = await carregarLojaVitrine();
+  await salvarLojaVitrine({
+    ...atual,
+    plano: conta.plano ?? atual.plano,
+    lojaId: conta.id,
+    nome: atual.nome.trim() || conta.nome,
+  });
+}
+
 export async function salvarLogoVitrine(dataUrl: string): Promise<string> {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
   if (!match) return "";

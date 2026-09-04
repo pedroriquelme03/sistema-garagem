@@ -75,3 +75,15 @@ export function modelosDoEstoque(veiculos: VeiculoVitrine[], marca?: string): { 
     .map(([modelo, quantidade]) => ({ modelo, quantidade }))
     .sort((a, b) => a.modelo.localeCompare(b.modelo, "pt-BR"));
 }
+
+export function carroceriasDoEstoque(veiculos: VeiculoVitrine[]): { tipo: string; quantidade: number }[] {
+  const mapa = new Map<string, number>();
+  for (const veiculo of veiculos) {
+    const tipo = (veiculo.carroceria ?? "").trim();
+    if (!tipo) continue;
+    mapa.set(tipo, (mapa.get(tipo) ?? 0) + 1);
+  }
+  return [...mapa.entries()]
+    .map(([tipo, quantidade]) => ({ tipo, quantidade }))
+    .sort((a, b) => a.tipo.localeCompare(b.tipo, "pt-BR"));
+}

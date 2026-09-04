@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { lojaPorId } from "@/lib/acesso/banco";
 import { assinarSessao, opcoesCookie, sessaoDoRequest } from "@/lib/acesso/sessao";
+import { carimbarPlanoVitrine } from "@/lib/vitrine-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export async function POST(request: Request, { params }: Params) {
     lojaId: loja.id,
     comoLoja: true,
   });
+  await carimbarPlanoVitrine({ id: loja.id, plano: loja.plano, nome: loja.nome });
   const resposta = NextResponse.json({ ok: true, loja });
   resposta.cookies.set(opcoesCookie(token));
   return resposta;

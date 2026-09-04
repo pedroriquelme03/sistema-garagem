@@ -31,6 +31,7 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         loja: ["var(--font-loja)", "system-ui", "sans-serif"],
         display: ["var(--font-loja-display)", "var(--font-loja)", "sans-serif"],
+        serif: ["var(--font-loja-serif)", "Georgia", "serif"],
       },
       boxShadow: {
         loja: "0 18px 50px -24px rgba(13, 22, 33, 0.45)",

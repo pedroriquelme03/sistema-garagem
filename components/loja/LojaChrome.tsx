@@ -20,7 +20,10 @@ export default function LojaChrome({
 }) {
   return (
     <LojaUiProvider loja={loja} origem={origem}>
-      <div className="min-h-screen bg-patio-paper font-loja text-patio-ink" style={cssVarsDoTema(loja.tema) as CSSProperties}>
+      <div
+        className={`min-h-screen font-loja text-patio-ink ${loja.recursos.includes("site-master") ? "bg-patio-night" : "bg-patio-paper"}`}
+        style={cssVarsDoTema(loja.tema) as CSSProperties}
+      >
         {origem === "demo" ? (
           <p className="bg-patio-ink px-4 py-2 text-center text-xs text-white/85">
             Vitrine de demonstração do Garagem Pro. Cadastre veículos no pátio para este estoque virar o da sua loja.

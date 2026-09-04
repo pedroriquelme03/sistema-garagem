@@ -135,7 +135,7 @@ export default function Configuracoes() {
         <CadeadoUpgrade
           recurso="site-master"
           titulo="Site 100% da loja"
-          texto="Identidade visual sob medida para o pátio. Desbloqueia no Master, junto com FANDI e Banco BV."
+          texto="Showroom cinematográfico, ficha do carro e identidade da loja. Desbloqueia no Master, junto com FANDI e Banco BV."
         />
       ) : null}
       <div className="border-t border-slate-100 pt-6">

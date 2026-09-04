@@ -1,5 +1,5 @@
 import { parseBRL } from "@/lib/anuncios";
-import { planoValido, recursosDoPlano, type PlanoLoja, type RecursoPlano } from "@/lib/acesso/tipos";
+import { PLANOS_PADRAO, planoValido, recursosDoPlano, type DefinicaoPlano, type PlanoLoja, type RecursoPlano } from "@/lib/acesso/tipos";
 import { resolverTema, type TemaLoja } from "@/lib/temas-loja";
 import type { LojaVitrine } from "@/lib/vitrine";
 
@@ -25,6 +25,13 @@ export type LojaPublica = LojaVitrine & {
 };
 
 export type OrigemEstoque = "vitrine" | "demo";
+export type NivelVitrine = "essencial" | "pro" | "master";
+
+export function nivelVitrine(loja: Pick<LojaPublica, "recursos" | "plano">): NivelVitrine {
+  if (loja.plano === "master" || loja.recursos.includes("site-master")) return "master";
+  if (loja.plano === "pro" || loja.recursos.includes("vitrine-plus")) return "pro";
+  return "essencial";
+}
 
 export function linkWhatsapp(telefone: string, texto: string) {
   const numero = telefone.replace(/\D/g, "");
@@ -46,9 +53,9 @@ export function embedGoogleMaps(consulta: string) {
   return `https://maps.google.com/maps?q=${encodeURIComponent(consulta)}&z=16&output=embed`;
 }
 
-export function resolverLoja(loja: LojaVitrine): LojaPublica {
+export function resolverLoja(loja: LojaVitrine, catalogo: DefinicaoPlano[] = PLANOS_PADRAO): LojaPublica {
   const plano: PlanoLoja = planoValido(loja.plano) ? loja.plano : "essencial";
-  const recursos = recursosDoPlano(plano);
+  const recursos = recursosDoPlano(plano, catalogo);
   const temaLivre = recursos.includes("vitrine-plus") || recursos.includes("site-master");
   const temaId = temaLivre ? (loja.temaId || LOJA_PADRAO.temaId) : "garagem";
   return {

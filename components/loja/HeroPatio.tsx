@@ -1,45 +1,55 @@
-"use client";
-
-import { FormEvent, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import BuscaHero from "@/components/loja/BuscaHero";
+import VeiculoCapa from "@/components/loja/VeiculoCapa";
 import { marcasDoEstoque } from "@/lib/vitrine";
 import type { VeiculoVitrine } from "@/lib/vitrine";
 
-export default function HeroPatio({ veiculos, nomeLoja }: { veiculos: VeiculoVitrine[]; nomeLoja: string }) {
-  const router = useRouter();
-  const [q, setQ] = useState("");
-  const [marca, setMarca] = useState("");
-  const marcas = useMemo(() => marcasDoEstoque(veiculos), [veiculos]);
-
-  function buscar(event: FormEvent) {
-    event.preventDefault();
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (marca) params.set("marca", marca);
-    router.push(`/loja/estoque${params.size ? `?${params}` : ""}`);
-  }
+export default function HeroPatio({
+  veiculos,
+  nomeLoja,
+  cidade,
+}: {
+  veiculos: VeiculoVitrine[];
+  nomeLoja: string;
+  cidade?: string;
+}) {
+  const capa = veiculos.find(item => item.fotos[0]?.src) ?? veiculos[0];
+  const listaMarcas = marcasDoEstoque(veiculos);
 
   return (
-    <section className="relative overflow-hidden bg-patio-night text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgb(var(--p-cobalt)_/_0.28),transparent_36%),linear-gradient(180deg,rgb(var(--p-night))_0%,rgb(var(--p-ink))_100%)]" />
-      <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-        <p className="text-sm font-medium text-white/55">Pátio da {nomeLoja}</p>
-        <h1 className="mt-3 max-w-2xl font-display text-4xl leading-tight sm:text-6xl">Encontre o carro que já está no chão.</h1>
-        <p className="mt-4 max-w-xl text-base leading-7 text-white/65">Busca só nas marcas com estoque. O anúncio some quando o carro sai — sem vitrine inflada.</p>
+    <section className="relative min-h-[88vh] overflow-hidden bg-patio-night text-white">
+      {capa ? (
+        <div className="absolute inset-0">
+          <VeiculoCapa veiculo={capa} />
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgb(var(--p-cobalt)_/_0.28),transparent_36%),linear-gradient(180deg,rgb(var(--p-night))_0%,rgb(var(--p-ink))_100%)]" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-black/15" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/35" />
 
-        <form onSubmit={buscar} className="mt-10 grid gap-3 rounded-2xl bg-white p-3 text-patio-ink shadow-loja sm:grid-cols-[1fr_180px_auto]">
-          <label className="sr-only" htmlFor="busca-patio">Buscar modelo</label>
-          <input id="busca-patio" value={q} onChange={e => setQ(e.target.value)} placeholder="Modelo, versão ou cor" className="rounded-xl px-4 py-3 text-sm outline-none" />
-          <label className="sr-only" htmlFor="marca-patio">Marca</label>
-          <select id="marca-patio" value={marca} onChange={e => setMarca(e.target.value)} className="rounded-xl bg-patio-paper px-3 py-3 text-sm outline-none">
-            <option value="">Todas as marcas</option>
-            {marcas.map(item => (
-              <option key={item.marca} value={item.marca}>{item.marca} ({item.quantidade})</option>
-            ))}
-          </select>
-          <button className="rounded-xl bg-patio-cobalt px-6 py-3 text-sm font-semibold text-white hover:bg-patio-deep">Buscar</button>
-        </form>
-        <p className="mt-3 text-xs text-white/45">{veiculos.length} {veiculos.length === 1 ? "veículo" : "veículos"} · {marcas.length} {marcas.length === 1 ? "marca" : "marcas"} no pátio agora</p>
+      <div className="relative mx-auto flex min-h-[88vh] max-w-6xl flex-col justify-end px-4 pb-10 pt-28 sm:px-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/65">
+          Seminovos{cidade ? ` · ${cidade}` : ""}
+        </p>
+        <h1 className="mt-3 max-w-3xl font-display text-5xl leading-[1.02] sm:text-7xl">{nomeLoja}</h1>
+        <p className="mt-4 max-w-xl text-lg leading-8 text-white/75">
+          O estoque do site é o do pátio. Busca o carro, chama a loja, fecha no chão.
+        </p>
+        <BuscaHero marcas={listaMarcas} variante="pro" />
+        <dl className="mt-8 grid max-w-lg grid-cols-3 gap-4 border-t border-white/15 pt-6">
+          <div>
+            <dt className="text-[11px] uppercase tracking-wider text-white/40">À venda</dt>
+            <dd className="mt-1 font-display text-2xl">{veiculos.length}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wider text-white/40">Marcas</dt>
+            <dd className="mt-1 font-display text-2xl">{listaMarcas.length}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wider text-white/40">Estoque</dt>
+            <dd className="mt-1 font-display text-2xl">Ao vivo</dd>
+          </div>
+        </dl>
       </div>
     </section>
   );
