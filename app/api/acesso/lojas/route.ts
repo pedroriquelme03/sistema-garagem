@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { criarLoja, listarLojas, usuarioPorId } from "@/lib/acesso/banco";
+import { criarLoja, listarLojas, precoDoCreditoRenave, usuarioPorId } from "@/lib/acesso/banco";
 import { sessaoDoRequest } from "@/lib/acesso/sessao";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (!ehPlataforma(sessao)) {
     return NextResponse.json({ erro: "Só a plataforma vê as lojas." }, { status: 403 });
   }
-  return NextResponse.json({ lojas: listarLojas() });
+  return NextResponse.json({ lojas: listarLojas(), precoCreditoRenave: precoDoCreditoRenave() });
 }
 
 export async function POST(request: Request) {

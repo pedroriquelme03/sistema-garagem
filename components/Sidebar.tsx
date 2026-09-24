@@ -14,6 +14,7 @@ const todos = [
   ["/clientes", "Clientes", "♙"],
   ["/negociacoes", "Negociações", "▤"],
   ["/integracoes", "Integrações", "⧉"],
+  ["/renave", "RENAVE", "▣"],
   ["/simulacoes", "Financiamento", "％"],
   ["/relatorios", "Relatórios", "⌁"],
 ];

@@ -3,7 +3,10 @@ import { COOKIE_SESSAO, type SessaoCookie } from "@/lib/acesso/tipos";
 const DUAS_SEMANAS = 60 * 60 * 24 * 14;
 
 function segredo() {
-  return process.env.AUTH_SECRET ?? "";
+  const definido = process.env.AUTH_SECRET?.trim();
+  if (definido) return definido;
+  if (process.env.NODE_ENV !== "production") return "dev-garagem-local";
+  return "";
 }
 
 function b64url(bytes: Uint8Array) {
@@ -100,6 +103,7 @@ export function rotaPublica(pathname: string) {
   if (pathname.startsWith("/loja")) return true;
   if (pathname.startsWith("/api/vitrine")) return true;
   if (pathname === "/api/acesso/entrar" || pathname === "/api/acesso/primeiro" || pathname === "/api/acesso/estado") return true;
+  if (process.env.NODE_ENV !== "production" && pathname === "/api/acesso/dev") return true;
   if (pathname.startsWith("/portais/")) return true;
   return false;
 }

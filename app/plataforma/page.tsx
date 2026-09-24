@@ -9,7 +9,7 @@ import { formatarPrecoPlano, PLANOS_PADRAO, RECURSOS_PLANO, STATUS_LOJA, type De
 import { useAcesso } from "@/components/AcessoProvider";
 
 export default function PlataformaPage() {
-  const { sessao } = useAcesso();
+  const { sessao, recarregar } = useAcesso();
   const router = useRouter();
   const [lojas, setLojas] = useState<LojaPublica[]>([]);
   const [aberta, setAberta] = useState<string | null>(null);
@@ -19,6 +19,7 @@ export default function PlataformaPage() {
   const [form, setForm] = useState({ nome: "", adminNome: "", adminEmail: "", adminSenha: "", plano: "essencial" as PlanoLoja });
   const [vendedor, setVendedor] = useState({ nome: "", email: "", senha: "", papel: "vendedor" as "admin" | "vendedor" });
   const [planos, setPlanos] = useState<DefinicaoPlano[]>(PLANOS_PADRAO);
+  const [pacote, setPacote] = useState("10");
 
   async function carregar() {
     const [rLojas, rPlanos] = await Promise.all([fetch("/api/acesso/lojas"), fetch("/api/acesso/planos")]);
@@ -88,6 +89,7 @@ export default function PlataformaPage() {
     if (!loja) return;
     const resposta = await fetch(`/api/acesso/lojas/${loja.id}/abrir`, { method: "POST" });
     if (!resposta.ok) return;
+    await recarregar();
     router.replace("/");
     router.refresh();
   }
@@ -109,6 +111,24 @@ export default function PlataformaPage() {
     setUsuarios(lista => [...lista, dados.usuario]);
     setVendedor({ nome: "", email: "", senha: "", papel: "vendedor" });
     await carregar();
+  }
+
+  async function lancarCreditos() {
+    if (!loja) return;
+    setErro("");
+    const quantidade = Number(pacote);
+    const resposta = await fetch("/api/acesso/renave", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lojaId: loja.id, quantidade }),
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      setErro(dados.erro ?? "Não lançou os créditos.");
+      return;
+    }
+    setLojas(lista => lista.map(item => item.id === loja.id ? { ...item, creditosRenave: dados.saldo } : item));
+    setPacote("10");
   }
 
   function toggleModulo(id: PortalId) {
@@ -137,6 +157,11 @@ export default function PlataformaPage() {
         <Card numero={resumo.pro} label={planos.find(p => p.id === "pro")?.label ?? "Pro"} />
         <Card numero={resumo.master} label={planos.find(p => p.id === "master")?.label ?? "Master"} />
       </div>
+
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Crédito RENAVE</p>
+        <p className="mt-1 text-sm text-slate-500">O automático começa desligado. Ative só na loja que for usar. Sem isso, a aba aparece e pede para falar com o gestor.</p>
+      </section>
 
       <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
         <Link href="/plataforma/planos" className="text-sm font-semibold text-brand-700 hover:text-brand-800">Gerir planos →</Link>
@@ -186,7 +211,7 @@ export default function PlataformaPage() {
                 <button type="button" onClick={() => setAberta(id => id === item.id ? null : item.id)} className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50">
                   <span>
                     <span className="block text-sm font-semibold text-slate-900">{item.nome}</span>
-                    <span className="text-xs text-slate-500">{item.planoLabel || planos.find(p => p.id === item.plano)?.label || item.plano} · {formatarPrecoPlano(item.planoPreco ?? planos.find(p => p.id === item.plano)?.precoMensal ?? 0)} / mês · {STATUS_LOJA.find(s => s.id === item.status)?.label} · {item.usuarios} usuário{item.usuarios === 1 ? "" : "s"}</span>
+                    <span className="text-xs text-slate-500">{item.planoLabel || planos.find(p => p.id === item.plano)?.label || item.plano} · {formatarPrecoPlano(item.planoPreco ?? planos.find(p => p.id === item.plano)?.precoMensal ?? 0)} / mês · RENAVE {item.renaveAutomatico ? "automático" : "desligado"} · {STATUS_LOJA.find(s => s.id === item.status)?.label} · {item.usuarios} usuário{item.usuarios === 1 ? "" : "s"}</span>
                   </span>
                   <span className="text-xs font-semibold text-brand-600">{aberta === item.id ? "Fechar" : "Abrir"}</span>
                 </button>
@@ -238,6 +263,28 @@ export default function PlataformaPage() {
                 <li key={item.id} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{item.label}</li>
               ))}
             </ul>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">RENAVE automático</p>
+            <p className="mt-1 text-sm text-slate-500">{loja.renaveAutomatico ? "Ligado nesta loja. Entrada e saída disparam sozinhas quando há crédito." : "Desligado. A loja vê a aba e o pedido para falar com o gestor."}</p>
+            <button type="button" onClick={() => void salvarLoja({ renaveAutomatico: !loja.renaveAutomatico })} className={`mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${loja.renaveAutomatico ? "bg-slate-900" : "bg-brand-600"}`}>
+              {loja.renaveAutomatico ? "Desativar RENAVE automático" : "Ativar RENAVE automático"}
+            </button>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Créditos RENAVE desta loja</p>
+            <p className="mt-1 text-sm text-slate-500">Saldo atual: {loja.creditosRenave ?? 0}. Libere créditos para a entrada e a saída andarem sozinhas.</p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="text-xs font-semibold text-slate-600">
+                Quantidade
+                <input value={pacote} onChange={event => setPacote(event.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" className="mt-1.5 block w-28 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+              </label>
+              <button type="button" onClick={() => void lancarCreditos()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white">
+                Liberar créditos
+              </button>
+            </div>
           </div>
 
           <div>

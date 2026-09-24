@@ -13,6 +13,7 @@ import { carregarDadosLoja } from "@/lib/loja";
 import { escapeHtml, imprimirHtml } from "@/lib/imprimir";
 import { buscarClientePorId } from "@/lib/clientes";
 import { entradaDoVeiculo, saidasDoVeiculo, type Negociacao } from "@/lib/negociacoes";
+import { registrarRenaveAutomatico } from "@/lib/renave-cliente";
 import { buscarVeiculoPorId, salvarVeiculo } from "@/lib/veiculos";
 import { formatBRL, parseBRL } from "@/lib/anuncios";
 
@@ -231,15 +232,26 @@ ${stat(form.garantia, "Garantia")}
       const mensagem = "Não foi possível salvar a foto neste navegador. Tente outra imagem menor.";
       setError(mensagem); setAvisoSalvar(mensagem); return;
     }
+    const eraVendido = existing?.status === "Vendido";
     salvarVeiculo({ id, ...form, fotos: dadosDasFotos, criadoEm: existing?.criadoEm ?? new Date().toISOString() });
+    let avisoRenave: string | null = null;
+    if (!existing) {
+      const entrada = await registrarRenaveAutomatico(form.placa, "entrada");
+      if (entrada?.motivo === "sem-credito") avisoRenave = "Veículo salvo. A entrada no RENAVE espera crédito.";
+    }
+    if (form.status === "Vendido" && !eraVendido) {
+      const saida = await registrarRenaveAutomatico(form.placa, "saida");
+      if (saida?.motivo === "sem-credito") avisoRenave = "Veículo salvo. A saída no RENAVE espera crédito.";
+    }
     try {
       await publicarVeiculoNoSite({ id, ...form, fotos: dadosDasFotos, criadoEm: existing?.criadoEm ?? new Date().toISOString() }, fotos);
     } catch (e) {
-      setError(null); setAvisoSalvar(null); setDone(true); setAlterado(false);
+      setDone(true); setAlterado(false);
       setError((e as Error).message + " O veículo foi salvo no painel, mas não atualizou o site.");
+      setAvisoSalvar(avisoRenave);
       return;
     }
-    setError(null); setAvisoSalvar(null); setDone(true); setAlterado(false);
+    setError(null); setAvisoSalvar(avisoRenave); setDone(true); setAlterado(false);
   }
 
   return <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:px-8">

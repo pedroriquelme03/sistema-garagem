@@ -53,7 +53,7 @@ export function AcessoProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     void recarregar();
-  }, [publico, recarregar]);
+  }, [publico, pathname, recarregar]);
 
   if (sessao?.loja?.id) definirLojaAtual(sessao.loja.id);
 

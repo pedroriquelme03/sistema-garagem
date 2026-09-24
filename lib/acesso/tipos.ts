@@ -30,7 +30,22 @@ export type Loja = {
   plano: PlanoLoja;
   criadoEm: string;
   modulosLiberados: PortalId[];
+  creditosRenave: number;
+  renaveAutomatico: boolean;
 };
+
+export type MovimentoRenave = {
+  id: string;
+  lojaId: string;
+  tipo: "recarga" | "compra" | "uso" | "entrada" | "saida";
+  creditos: number;
+  placa: string | null;
+  valorRenave?: number;
+  valorAdmin?: number;
+  criadoEm: string;
+};
+
+export const TAXA_FIXA_RENAVE_SAIDA = 4.43;
 
 export type DefinicaoPlano = {
   id: PlanoLoja;
@@ -44,6 +59,8 @@ export type BancoAcesso = {
   usuarios: Usuario[];
   lojas: Loja[];
   planos: DefinicaoPlano[];
+  precoCreditoRenave: number;
+  movimentosRenave: MovimentoRenave[];
 };
 
 export type SessaoCookie = {
@@ -73,7 +90,11 @@ export type LojaPublica = {
   modulosLiberados: PortalId[];
   recursos: RecursoPlano[];
   usuarios: number;
+  creditosRenave: number;
+  renaveAutomatico: boolean;
 };
+
+export const PRECOS_CREDITO_RENAVE = [8, 9, 10] as const;
 
 export type SessaoAtual = {
   usuario: UsuarioPublico;
@@ -128,6 +149,10 @@ export const PLANOS_LOJA = PLANOS_PADRAO;
 
 export function planoValido(valor: unknown): valor is PlanoLoja {
   return valor === "essencial" || valor === "pro" || valor === "master";
+}
+
+export function precoCreditoRenaveValido(valor: unknown): valor is (typeof PRECOS_CREDITO_RENAVE)[number] {
+  return valor === 8 || valor === 9 || valor === 10;
 }
 
 export function recursoValido(valor: unknown): valor is RecursoPlano {

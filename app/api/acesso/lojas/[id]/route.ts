@@ -30,6 +30,7 @@ export async function PATCH(request: Request, { params }: Params) {
     status?: StatusLoja;
     plano?: PlanoLoja;
     modulosLiberados?: PortalId[];
+    renaveAutomatico?: boolean;
   } | null;
   try {
     const loja = atualizarLoja(params.id, {
@@ -37,6 +38,7 @@ export async function PATCH(request: Request, { params }: Params) {
       status: corpo?.status,
       plano: corpo?.plano,
       modulosLiberados: corpo?.modulosLiberados,
+      renaveAutomatico: typeof corpo?.renaveAutomatico === "boolean" ? corpo.renaveAutomatico : undefined,
     });
     const vitrine = await carregarLojaVitrine();
     if (!vitrine.lojaId || vitrine.lojaId === loja.id) {

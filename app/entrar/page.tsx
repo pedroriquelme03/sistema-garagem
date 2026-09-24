@@ -7,9 +7,11 @@ type Pessoa = { nome: string; email: string; senha: string };
 
 const vazio: Pessoa = { nome: "", email: "", senha: "" };
 
+const desenvolvimento = process.env.NODE_ENV === "development";
+
 export default function EntrarPage() {
   const router = useRouter();
-  const [setup, setSetup] = useState<boolean | null>(null);
+  const [setup, setSetup] = useState<boolean | null>(desenvolvimento ? false : null);
   const [voce, setVoce] = useState<Pessoa>(vazio);
   const [socio, setSocio] = useState<Pessoa>(vazio);
   const [login, setLogin] = useState({ email: "", senha: "" });
@@ -17,6 +19,29 @@ export default function EntrarPage() {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
+    if (!desenvolvimento) return;
+    let cancelado = false;
+    fetch("/api/acesso/dev", { method: "POST" })
+      .then(async resposta => {
+        const dados = await resposta.json().catch(() => ({}));
+        if (cancelado) return;
+        if (!resposta.ok) {
+          setErro(dados.erro ?? "Não foi possível abrir o sistema.");
+          return;
+        }
+        router.replace("/plataforma");
+        router.refresh();
+      })
+      .catch(() => {
+        if (!cancelado) setErro("Não foi possível abrir o sistema.");
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (desenvolvimento) return;
     fetch("/api/acesso/estado")
       .then(r => r.json())
       .then(d => setSetup(Boolean(d.precisaSetup)))
@@ -36,6 +61,7 @@ export default function EntrarPage() {
     const dados = await resposta.json().catch(() => ({}));
     setEnviando(false);
     if (!resposta.ok) {
+      if (resposta.status === 409) setSetup(false);
       setErro(dados.erro ?? "Não foi possível criar o acesso.");
       return;
     }
@@ -63,8 +89,12 @@ export default function EntrarPage() {
     router.refresh();
   }
 
-  if (setup === null) {
-    return <div className="grid min-h-dvh place-items-center text-sm text-slate-500">Carregando…</div>;
+  if (desenvolvimento || setup === null) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-slate-950 px-4 text-sm text-slate-400">
+        {erro || (desenvolvimento ? "Abrindo o sistema…" : "Carregando…")}
+      </div>
+    );
   }
 
   return (

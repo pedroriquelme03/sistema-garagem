@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { PORTAIS, type PortalId } from "@/lib/integracoes";
 import { emailOk, hashSenha, senhaBate, senhaOk } from "@/lib/acesso/senha";
-import { PLANOS_PADRAO, labelDoPlano, planoValido, precoDoPlano, recursoValido, recursosDoPlano, type BancoAcesso, type DefinicaoPlano, type Loja, type LojaPublica, type Papel, type PlanoLoja, type RecursoPlano, type StatusLoja, type Usuario, type UsuarioPublico } from "@/lib/acesso/tipos";
+import { PLANOS_PADRAO, TAXA_FIXA_RENAVE_SAIDA, labelDoPlano, planoValido, precoCreditoRenaveValido, precoDoPlano, recursoValido, recursosDoPlano, type BancoAcesso, type DefinicaoPlano, type Loja, type LojaPublica, type MovimentoRenave, type Papel, type PlanoLoja, type RecursoPlano, type StatusLoja, type Usuario, type UsuarioPublico } from "@/lib/acesso/tipos";
 
 const arquivo = path.join(process.cwd(), "data", "acesso.json");
 
@@ -11,7 +11,17 @@ function todosPortais(): PortalId[] {
 }
 
 function vazio(): BancoAcesso {
-  return { usuarios: [], lojas: [], planos: PLANOS_PADRAO.map(item => ({ ...item, recursos: [...item.recursos] })) };
+  return {
+    usuarios: [],
+    lojas: [],
+    planos: PLANOS_PADRAO.map(item => ({ ...item, recursos: [...item.recursos] })),
+    precoCreditoRenave: 10,
+    movimentosRenave: [],
+  };
+}
+
+function creditosDaLoja(valor: unknown) {
+  return typeof valor === "number" && Number.isInteger(valor) && valor >= 0 ? valor : 0;
 }
 
 function precoMensalValido(valor: unknown): valor is number {
@@ -36,8 +46,14 @@ function ler(): BancoAcesso {
     const lido = JSON.parse(readFileSync(arquivo, "utf8")) as BancoAcesso;
     return {
       usuarios: Array.isArray(lido.usuarios) ? lido.usuarios : [],
-      lojas: Array.isArray(lido.lojas) ? lido.lojas : [],
+      lojas: (Array.isArray(lido.lojas) ? lido.lojas : []).map(loja => ({
+        ...loja,
+        creditosRenave: creditosDaLoja(loja.creditosRenave),
+        renaveAutomatico: loja.renaveAutomatico === true,
+      })),
       planos: catalogoCompleto(lido.planos),
+      precoCreditoRenave: precoCreditoRenaveValido(lido.precoCreditoRenave) ? lido.precoCreditoRenave : 10,
+      movimentosRenave: Array.isArray(lido.movimentosRenave) ? lido.movimentosRenave : [],
     };
   } catch {
     return vazio();
@@ -63,6 +79,8 @@ function publicaLoja(loja: Loja, usuarios: Usuario[], planos = ler().planos): Lo
     recursos: recursosDoPlano(plano, planos),
     modulosLiberados: Array.isArray(loja.modulosLiberados) && loja.modulosLiberados.length ? loja.modulosLiberados : todosPortais(),
     usuarios: usuarios.filter(item => item.lojaId === loja.id).length,
+    creditosRenave: creditosDaLoja(loja.creditosRenave),
+    renaveAutomatico: loja.renaveAutomatico === true,
   };
 }
 
@@ -76,6 +94,11 @@ function novoId() {
 
 export function precisaSetup() {
   return ler().usuarios.every(item => item.papel !== "plataforma");
+}
+
+export function usuarioPlataforma() {
+  const usuario = ler().usuarios.find(item => item.papel === "plataforma");
+  return usuario ? publicoUsuario(usuario) : null;
 }
 
 export function lojaPorId(id: string) {
@@ -142,6 +165,8 @@ export function criarLoja(entrada: { nome: string; adminNome: string; adminEmail
     plano,
     criadoEm: agora,
     modulosLiberados: todosPortais(),
+    creditosRenave: 0,
+    renaveAutomatico: false,
   };
   const admin: Usuario = {
     id: novoId(),
@@ -158,7 +183,7 @@ export function criarLoja(entrada: { nome: string; adminNome: string; adminEmail
   return publicaLoja(loja, banco.usuarios);
 }
 
-export function atualizarLoja(id: string, patch: { nome?: string; status?: StatusLoja; plano?: PlanoLoja; modulosLiberados?: PortalId[] }) {
+export function atualizarLoja(id: string, patch: { nome?: string; status?: StatusLoja; plano?: PlanoLoja; modulosLiberados?: PortalId[]; renaveAutomatico?: boolean }) {
   const banco = ler();
   const loja = banco.lojas.find(item => item.id === id);
   if (!loja) throw new Error("Loja não encontrada.");
@@ -172,6 +197,7 @@ export function atualizarLoja(id: string, patch: { nome?: string; status?: Statu
     loja.modulosLiberados = patch.modulosLiberados.filter(idPortal => PORTAIS.some(item => item.id === idPortal));
     if (!loja.modulosLiberados.includes("site")) loja.modulosLiberados.push("site");
   }
+  if (typeof patch.renaveAutomatico === "boolean") loja.renaveAutomatico = patch.renaveAutomatico;
   if (!planoValido(loja.plano)) loja.plano = "essencial";
   gravar(banco);
   return publicaLoja(loja, banco.usuarios);
@@ -234,4 +260,91 @@ export function criarUsuarioLoja(lojaId: string, entrada: { nome: string; email:
   banco.usuarios.push(usuario);
   gravar(banco);
   return publicoUsuario(usuario);
+}
+
+function placaLimpa(placa: string) {
+  return placa.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function reais(valor: number) {
+  return Math.round(valor * 100) / 100;
+}
+
+function quantidadeValida(quantidade: number) {
+  if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 500) {
+    throw new Error("Informe de 1 a 500 créditos.");
+  }
+}
+
+export function precoDoCreditoRenave() {
+  return ler().precoCreditoRenave;
+}
+
+export function definirPrecoCreditoRenave(preco: number) {
+  if (!precoCreditoRenaveValido(preco)) throw new Error("O crédito do RENAVE custa 8, 9 ou 10 reais.");
+  const banco = ler();
+  banco.precoCreditoRenave = preco;
+  gravar(banco);
+  return preco;
+}
+
+export function movimentosRenaveDaLoja(lojaId: string): MovimentoRenave[] {
+  return ler()
+    .movimentosRenave.filter(item => item.lojaId === lojaId)
+    .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+}
+
+function somarCreditos(lojaId: string, quantidade: number, tipo: "compra" | "recarga") {
+  quantidadeValida(quantidade);
+  const banco = ler();
+  const loja = banco.lojas.find(item => item.id === lojaId);
+  if (!loja) throw new Error("Loja não encontrada.");
+  const preco = banco.precoCreditoRenave;
+  loja.creditosRenave = creditosDaLoja(loja.creditosRenave) + quantidade;
+  const movimento: MovimentoRenave = {
+    id: novoId(),
+    lojaId,
+    tipo,
+    creditos: quantidade,
+    placa: null,
+    valorRenave: tipo === "compra" ? reais(TAXA_FIXA_RENAVE_SAIDA * quantidade) : undefined,
+    valorAdmin: tipo === "compra" ? reais(preco * quantidade) : undefined,
+    criadoEm: new Date().toISOString(),
+  };
+  banco.movimentosRenave.push(movimento);
+  gravar(banco);
+  return { saldo: loja.creditosRenave, preco, taxaFixa: TAXA_FIXA_RENAVE_SAIDA, movimento };
+}
+
+export function recarregarCreditosRenave(lojaId: string, quantidade: number) {
+  return somarCreditos(lojaId, quantidade, "recarga");
+}
+
+export function registrarRenave(lojaId: string, placa: string, evento: "entrada" | "saida") {
+  const limpa = placaLimpa(placa);
+  if (limpa.length !== 7) return { registrado: false as const, motivo: "placa", saldo: 0 };
+  const banco = ler();
+  const loja = banco.lojas.find(item => item.id === lojaId);
+  if (!loja) throw new Error("Loja não encontrada.");
+  const saldoAtual = creditosDaLoja(loja.creditosRenave);
+  if (loja.renaveAutomatico !== true) return { registrado: false as const, motivo: "desativado" as const, saldo: saldoAtual };
+  const jaFeito = banco.movimentosRenave.some(item => {
+    if (item.lojaId !== lojaId || item.placa !== limpa) return false;
+    if (evento === "entrada") return item.tipo === "entrada";
+    return item.tipo === "saida" || item.tipo === "uso";
+  });
+  if (jaFeito) return { registrado: false as const, motivo: "ja-registrado" as const, saldo: saldoAtual };
+  if (saldoAtual < 1) return { registrado: false as const, motivo: "sem-credito" as const, saldo: 0 };
+  loja.creditosRenave = saldoAtual - 1;
+  const movimento: MovimentoRenave = {
+    id: novoId(),
+    lojaId,
+    tipo: evento,
+    creditos: 1,
+    placa: limpa,
+    criadoEm: new Date().toISOString(),
+  };
+  banco.movimentosRenave.push(movimento);
+  gravar(banco);
+  return { registrado: true as const, motivo: null, saldo: loja.creditosRenave, movimento };
 }

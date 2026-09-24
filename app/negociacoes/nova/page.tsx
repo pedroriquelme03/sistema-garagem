@@ -11,6 +11,7 @@ import { imprimirHtml } from "@/lib/imprimir";
 import { carregarDadosLoja } from "@/lib/loja";
 import { salvarNegociacao, type FormaPagamento, type ItemPagamento, type Negociacao } from "@/lib/negociacoes";
 import type { VehicleInfo } from "@/lib/placa";
+import { registrarRenaveAutomatico } from "@/lib/renave-cliente";
 import { buscarVeiculoPorId, listarVeiculos, salvarVeiculo, type Veiculo } from "@/lib/veiculos";
 import { tirarVeiculoDoSite } from "@/lib/vitrine-client";
 
@@ -150,6 +151,7 @@ function NovaNegociacao() {
     } else {
       const novoId = crypto.randomUUID();
       salvarVeiculo({ id: novoId, marca: veiculoNovo.marca, modelo: veiculoNovo.modelo, placa: veiculoNovo.placa, anoFabricacao: veiculoNovo.anoFabricacao, anoModelo: veiculoNovo.anoModelo, km: veiculoNovo.km, status: "Cadastrado", tipoEstoque: "Próprio", criadoEm: new Date().toISOString() });
+      void registrarRenaveAutomatico(veiculoNovo.placa, "entrada");
       veiculoPrincipalId = novoId;
     }
 
@@ -160,11 +162,13 @@ function NovaNegociacao() {
       const veiculoAtual = buscarVeiculoPorId(veiculoPrincipalId);
       if (veiculoAtual) {
         salvarVeiculo({ ...veiculoAtual, status: "Vendido" });
+        void registrarRenaveAutomatico(veiculoAtual.placa, "saida");
         void tirarVeiculoDoSite(veiculoPrincipalId);
       }
       if (trocaAtiva) {
         const trocaVeiculoId = crypto.randomUUID();
         salvarVeiculo({ id: trocaVeiculoId, marca: trocaForm.marca, modelo: trocaForm.modelo, placa: trocaForm.placa, anoFabricacao: trocaForm.anoFabricacao, anoModelo: trocaForm.anoModelo, km: trocaForm.km, status: "Cadastrado", tipoEstoque: "Próprio", criadoEm: new Date().toISOString() });
+        void registrarRenaveAutomatico(trocaForm.placa, "entrada");
         const trocaNegociacaoId = crypto.randomUUID();
         salvarNegociacao({ id: trocaNegociacaoId, tipo: "Troca", veiculoId: trocaVeiculoId, clienteId: clienteSelecionado.id, responsavelLoja, valor: trocaForm.valor, pagamentos: [], criadoEm: new Date().toISOString(), negociacaoOrigemId: negociacaoId });
         negociacaoPrincipal.trocaVeiculoId = trocaVeiculoId;
